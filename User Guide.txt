@@ -1,0 +1,45 @@
+Interlude 2.2 — User Guide
+
+Interlude combines focus timing, tasks, statistics and local music on Apple silicon Macs running macOS 14 or later. The application on disk is named 间奏.app. Finder may display its English name, Interlude.
+
+Motion in 2.2
+The introduction defaults to 10 seconds. Settings offers a short 3-second version, Off, and once-per-day playback. You can skip at any time. Moving forward or back between views combines a gentle directional slide with a fade. Buttons respond visually when you hover or press. Set animation intensity to zero in Settings or enable Reduce Motion in macOS to minimize movement.
+
+Installation and first launch
+Run the package to install Interlude and its uninstaller in Applications. Original ambient tracks are selected by default. Swift source is an optional component. To use the full application archive instead, unzip it, move the app to Applications if desired, and open it. The full app ZIP includes all three ambient tracks.
+Choose English, Simplified Chinese or the system language. Version 2.2 updates the agreement to 2026-11-21.1 with local backup and export details. Upgrading requires a new review. Review the document in a single freely scrolling view. When its end has appeared, check the box and confirm to enter. There are no timed or chapter-by-chapter gates. You may quit without accepting. The installer’s license step does not record agreement for the current user inside the app.
+The app menu lets you review the agreement or withdraw acceptance. Withdrawing locks the workspace and pauses active focus timing and music playback. Your saved data is retained by default. The personal-music notice is a separate decision.
+
+Focus, menu bar and shortcuts
+Open Focus (⌘1), choose a phase and start it. Set durations from 1 to 180 minutes. The first three focus rounds lead to short breaks, the fourth to a long break, and a break leads into the next focus round. Pause keeps your place. Reset stops at round one and restores the configured focus length. Logged history remains available.
+From the menu bar while Interlude is running, check the time, start or pause a session, reset it, or return to the workspace. The default global focus toggle is ⌘⇧Space. In Settings, choose ⌘⌥Space instead or turn the shortcut off. If another application already uses the combination, choose the alternative. A sleeping Mac cannot sound a reminder at the original instant. On resuming, Interlude settles one overdue phase and gives the next phase its full duration.
+
+Tasks and time by task
+Open Tasks (⌘2), enter a title and press Return. Click the circle to mark it complete. Double-click its text or open the row menu to rename. Undo is available for the most recent deletion while its prompt is present. Submitted entries persist locally. An unfinished draft stays in the workspace as you switch pages.
+Use the focus control on a task to start timing work on it. The timer shows the linked task. Timing a task and marking that task complete are separate actions. Statistics shows totals for today and this week, a twelve-week focus calendar and time by task for the selected range. Partial sessions contribute elapsed time; only complete sessions count as rounds. A record is assigned to its end date. Earlier history can retain a task's title even after the task is renamed or removed.
+
+Music, playlists and the floating player
+Open Music (⌘3). Ambient Music plays Stillroom, Daylight and Nocturne when the audio component is present. If it was omitted from the package installation, rerun the installer and select Original ambient music. The Personal Music library contains audio you import. Before first use, read and accept its separate privacy notice. To withdraw this consent later, open the notice again; playback stops and the library locks, with saved entries retained.
+Use the file picker or drag supported local audio files into the import area. Create a playlist for a set of tracks, rename or delete a playlist as needed, or return to the full library. Use shuffle for varied ordering or repeat-one to replay the current track. Adjust volume, seek, change tracks or pause. To change the sound transition, toggle music fades in Settings. Use the floating mini player to control playback while another window is in front. Music continues when you switch to Focus or Tasks.
+Library entries reference files at their original paths. If you move or rename a file, remove the missing library entry and import the file from its new location. Removing an entry or playlist does not delete the original audio.
+
+Preferences, local records and privacy
+Settings controls English or Chinese, system/light/dark appearance, Ember/Forest/Ocean accent, animation intensity, phase alert sound and volume, music fades and the global focus shortcut. The app also respects the macOS Reduce Motion setting.
+Task text and completion state are in ~/Library/Application Support/Interlude/tasks.json. The main app stores preferences under com.interlude.desktop, including focus history with linked task details, personal library paths, titles and durations, playlist membership, sound settings and consent records. Agreement reading progress records its version and whether you reached the end. Interlude has no account, advertising, usage analytics or upload service. Your operating system and any backup or file-provider software continue to use their own settings.
+After separate personal-music consent, Interlude can migrate known local library records from older versions. It does not scan folders for audio. The old standalone 间奏个人音乐 application, if installed, is retained when upgrading. Open Interlude and choose Personal Music to use the integrated player.
+
+Source, license and removal
+With the package installer, /Library/Application Support/Interlude/Music holds optional audio, Source holds optional source code, and Documents contains both guides, the agreement in both languages and the MIT license. Copy installed source to your project directory before editing. Open Interlude.xcodeproj in Xcode or run build.command to build the main app. Uninstaller/build.command builds the utility.
+Open Uninstall Interlude (卸载间奏) from Applications and review your choices. It removes the main app and can also remove components, the legacy standalone player, the utility itself or the current user's stored data. Back up edits before removing the installed source project. Clearing personal data deletes task records and app preferences, including history, consent, playlists and library settings. Original imported music files stay in place. The operation requires confirmation and administrator authorization.
+This locally built release has not been signed with a Developer ID or notarized by Apple. Software and source are licensed under the accompanying MIT License. The reader and consent flow do not restrict the rights it grants. Copyright (c) 2026 GPT-6 Astra Ultra,lin_ruihgz
+
+New in 2.2
+
+Focus offers Study, Writing and Work scenes, plus saved custom combinations of phase lengths, theme and ambient music. Applying a scene credits elapsed focus time and prepares a fresh focus phase. Daily goals show progress and a small celebration. Break suggestions can be disabled.
+Music offers a cancellable sleep timer or stopping after a focus phase. Four locally synthesized rain, ocean, forest and cafe soundscapes have independent volumes and can play together. No microphone, recording or online audio is used.
+Settings can export a local backup and restore after confirmation to replace business data. Backups include records and preferences. Personal libraries and playlists are included only with personal-music consent. Audio originals, consent and reading history are excluded, and files are not uploaded. Keep backup files private. Reimport original audio if its path is unavailable on another Mac.
+Statistics exports focus records as CSV or a weekly summary as PNG to a location you choose. Check task titles and times before sharing.
+
+Factory reset
+
+Choose Reset all data and settings at the bottom of Settings and confirm to clear Interlude tasks, focus history, personal library, playlists, scenes, goals, all preferences and consent records. The app returns to the agreement reader. Audio originals and exported backups or reports are kept. Older personal libraries are not automatically migrated back. This cannot be undone; export a backup first if needed.

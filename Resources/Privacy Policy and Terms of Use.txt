@@ -1,0 +1,165 @@
+Privacy Policy and Terms of Use
+
+Version 2026-11-21.1
+
+1. Who this document is for
+
+Interlude is a Mac application for focus sessions, tasks and local music. This document applies when you open the main application, whether for the first time, following an upgrade, or on a Mac you have used before. “You” means the person using the application. “This Mac” means the computer running it. Personal Music contains audio you choose to import and is managed separately from the ambient tracks supplied with Interlude.
+
+Consider where information goes when you take an action. Adding a task writes to a task file. Starting a timer saves a timer state. Adding personal music records where the file is located. Those records let Interlude restore a list, continue a session or find a song. You can use one feature without having to create a sample task or import a track for another.
+
+Interlude does not require an account and has no online profile. The application uses the local settings of the current macOS user. Two people sharing a macOS login may see the same tasks, music library and consent records. A name in the application, a checked box or a recorded time does not establish the identity of the person at the keyboard.
+
+2. Your choices when opening the app
+
+If the current user does not have a valid consent record on this Mac, Interlude opens the agreement reader first. At this point it prepares the information needed to display the text and restore reading progress. It initializes the focus timer, task list and music workspace only after acceptance. Even after an upgrade, it does not open your tasks or load your personal library to populate a sample screen in the reader.
+
+You can read the full document or quit and return under the same macOS login. Progress already saved on the device can be resumed. Declining or leaving before the end does not create an acceptance record. No explanation, email address, telephone number or feedback is required. If you do not accept the current version, you cannot enter the workspace.
+
+Installing the app and opening it for the first time are separate actions. Running the installer, copying the application, reading the installer's license or opening the accompanying text file does not confirm acceptance in Interlude. Make your own choice in the in-app reader.
+
+3. Reading the full document
+
+The reader displays all nineteen sections in a single, freely scrolling document. Scroll normally with the trackpad, wheel, scroll bar or keyboard. You can jump to another passage, return to an earlier heading, or use the scroll bar to reach the end directly. There is no scrolling speed limit, required waiting time or sequence of chapter buttons.
+
+When the end of the full text has appeared, the acceptance checkbox becomes available. You can scroll back and consult another passage before deciding. If you quit after reaching the end, the local checkpoint can keep that fact for the same version. It does not store your precise scrolling position.
+
+Reaching the end only establishes that the end marker appeared. Interlude does not use a camera, microphone, gaze tracking or a test to measure your comprehension. You can reread the document or consult the accompanying file before deciding. Reaching the end alone does not express consent; you must check the box and confirm.
+
+4. Reading progress and acceptance
+
+A reading checkpoint stores the document version and whether the end of the full text has appeared. Both values remain on this Mac. Interlude does not store a current chapter, a reading duration, the words you selected or a trace of your scrolling. The reader may reopen at the beginning even if a saved checkpoint already permits the confirmation step.
+
+After reaching the end of the full text, you must check the box and confirm. Interlude writes the version you accepted and the current device time to your preferences and clears the checkpoint. When a valid record for that version is available, you need not repeat the process every time you open the app. The date comes from your Mac; it is not an electronic signature verified by a third party.
+
+This version adds scene presets, daily goals, break suggestions, synthesized soundscapes, music sleep timers, local backups and statistics exports. Acceptance or partial progress for earlier versions does not carry over to this new text. English and Chinese present the same version and the same nineteen headings. A future revision with a new version requires another review. Clearing local preferences or changing macOS users can also return you to the reader. There is no online account from which to restore acceptance.
+
+5. Where information is stored
+
+Focus scenes store a name, phase durations, theme and music choice. Daily goals, break-suggestion preferences, goal-celebration dates, soundscape volumes, music sleep-timer choices and launch-animation preferences stay on this Mac. The once-per-day introduction uses a locally stored last-played date, which is not uploaded. Break suggestions are optional everyday reminders.
+
+Rain, ocean, forest and cafe soundscapes are synthesized locally. Mixing does not activate the microphone, record your environment or fetch online audio. Sleep timers and stopping music after focus only control Interlude playback, not other music apps.
+
+Tasks are stored in the current user's Library at ~/Library/Application Support/Interlude/tasks.json. The tilde stands for the user's home directory. This file holds task identifiers, text and completion status. It is separate from the bundle in Applications, so replacing the bundle and clearing the task file are different operations.
+
+The main app uses macOS preferences under com.interlude.desktop for session state, durations, music-library records, volume, privacy choices and agreement progress. Interface language, appearance, motion intensity, alerts and shortcut choices are also stored locally. The global shortcut is registered with the system and triggers its action while Interlude is running. Interlude does not log the text you type. macOS manages caching and the timing and location of preference writes. When troubleshooting, distinguish missing task text from missing timer or library settings.
+
+Interlude does not add a separate encryption password for these records. People who have access to your user files or preferences may be able to read them. Disk encryption, access controls and backups depend on your macOS configuration. This agreement never asks you to enter your system password into the reader.
+
+6. Focus and break records
+
+To show the correct phase after you switch views, pause or reopen the app, the timer saves the current mode, focus and break lengths, cycle position and deadline of a running session. Pausing records the remaining duration. When a focus session completes, its end time and duration are used to calculate session counts and minutes. Breaks organize the cycle and do not count as focused time. When you choose a task, a history entry can store its identifier and title at that time. Renaming or deleting a task does not rewrite the title in earlier entries. Statistics group time by the end date and include partial sessions; only a complete focus phase counts as a round.
+
+For example, after starting a timer you can work in the task list while the session continues. Interlude does not need to read web pages, text you type in other applications or their window titles to determine completion. The end of a session means the chosen time has passed. It does not mark a task complete or prove that work continued throughout the interval.
+
+Pause keeps your place. Reset stops the timer and returns it to the first focus round while keeping completed statistics. Use Pause if you plan to continue the same session later. Clearing stored focus records is a separate personal-data operation. A single timer reset does not clear your entire history.
+
+7. Conditions that affect the timer
+
+Interlude uses the device clock to determine when a phase ends. The first three focus rounds are followed by short breaks and the fourth by a long break. Completing a break starts the next focus round. You can choose a different duration or phase. When changing the length, selecting a phase or resetting, check the round and remaining time shown before restarting.
+
+If the Mac is asleep, the app has quit, or macOS has suspended execution, Interlude cannot promise an alert at the exact scheduled second. On resuming, it checks an overdue phase once and gives the next phase its full duration. It does not divide your entire absence into extra completed rounds. Changes to the device clock, sound settings or audio output can affect when you see or hear a cue.
+
+The focus view is for planning everyday activities such as writing, reading and taking breaks. A sound is a reminder to check the timer. If an activity depends on a strict deadline or needs medical monitoring or equipment alarms, use a tool designed for that purpose. Interlude does not measure health indicators or assess your health from focus records.
+
+8. Task text and editing
+
+Type the text you want to see in your list and submit it to add a task. You change its completion state by checking it. Renaming, removing or undoing a removal updates the local list. A task does not require real names, team members or contacts. If you type these into its title, they become part of the text stored in the current user's file.
+
+The All, Open and Completed filters change which tasks are visible. Hidden tasks remain in the list. Checking a task does not erase the title. After finishing a design draft, for example, you can find its task in the completed view and edit its wording. To remove the entry, use the task's delete action.
+
+A draft can remain in the current workspace while you move between views. After quitting, the entries you can expect to recover are those submitted and successfully saved. You can undo the most recent removal while that undo action remains available. Dismissing it, deleting another item or restarting the app means it cannot serve as a versioned backup.
+
+9. Ambient music and playback
+
+The music view offers Ambient Music and Personal Music. Ambient tracks include Stillroom, Daylight and Nocturne, supplied with the full application or as an optional installer component. In a package installation, the components you choose determine which audio files are present. Skipping ambient music does not add tracks to your personal library. Listening to installed ambient music does not require importing any personal files.
+
+Playback, pausing, changing tracks, seeking and volume control are handled on this Mac. The record and playback animations are drawn locally. Listening requires an available audio output. Headphones, speakers, system mute and routing changes can affect what you hear. The floating mini player and menu bar can show state outside the main window, so a track title or timer may also be visible there during screen sharing. A playback indicator does not tell the app whether anyone heard the sound.
+
+Music may continue when you switch to Focus or Tasks. The player uses the selected track and volume settings to restore its interface. Playing a track does not prompt Interlude to request an account from a music service or send a listening history to advertisers. You can pause music independently when you want a quiet focus session.
+
+10. Separate consent for Personal Music
+
+This agreement controls entry to the workspace. Personal Music has its own privacy notice and confirmation step. Only after its current notice is accepted does the feature open, load its personal library records and let you select files for import. Accepting this app-wide agreement does not grant personal-music consent or select any track on your disk.
+
+You can use Focus, Tasks and installed ambient music without enabling Personal Music. If you are undecided, leave its notice and return to those features. The personal-music decision and acceptance time are stored locally for the current user. This choice is distinct from system file-access controls and cannot override a macOS restriction on a particular file.
+
+Withdrawing consent in the personal-music notice stops personal playback and locks the library. Its records are kept by default in case you decide to use it again. This withdrawal applies to Personal Music. To withdraw from the entire workspace, use the withdrawal action in the app-wide agreement.
+
+11. How files enter your library
+
+For a personal import, the system file picker lets you select one or several local audio files. Interlude checks for a readable audio track and a valid duration, uses the filename for the display title and records the path, duration and track identifier. Names of people, clients or projects included in a filename or path can therefore become part of the local library.
+
+Selecting three songs adds only those files. Interlude does not automatically include other audio in the same directory or scan the disk for similar music. You can also drag local audio you select into the import area. Playlist names and track associations are stored locally. Shuffle, repeat-one and audio fades affect playback order or transitions without rewriting the audio. Repeated imports of the same path are deduplicated. If a file is unreadable or has no valid audio, the app can show its filename so you can identify the failed import.
+
+The library stores an entry and a location. To play it again the file must still be accessible at that location. A renamed or moved file, disconnected disk or deleted original can leave a visible entry that won't play. Reconnect the device, or remove the entry and choose the file again at its new location. Removing the entry leaves the original file in place.
+
+12. Importing records from older versions
+
+If you used a version that displayed imported tracks alongside ambient music, or the separate Interlude Personal Music application, an earlier library may still exist on this Mac. Personal Music now lives in the main application. Interlude checks known older preference stores and attempts to merge usable personal entries only after personal-music consent is given.
+
+Migration reads paths, titles and durations already recorded in the older libraries. It does not search folders for other songs. Records with an unrecognized format, missing location or unusable duration may be skipped. Two records for the same path need not produce two tracks. If an original file has moved, a migrated entry may still report a missing file when played.
+
+When migration finishes, the new library records that it has been processed. Tracks you intentionally remove afterwards are not reintroduced every time the application opens. Upgrading and migrating do not delete the older player, original audio or backups you made. Check the new library before deciding which old software to remove.
+
+13. Audio ownership and permissions
+
+Songs, recordings, podcasts and other audio you import remain under your management. Importing lets this Mac play a file at the location you chose. Interlude does not acquire ownership or place personal audio in a public catalog. Opening it for playback does not change the creator attribution, distribution terms or permissions already attached to the file.
+
+For example, listening to a rehearsal you recorded is a different use from publicly screening a film with a commercially released soundtrack. A file opening successfully shows only that the current system can read and decode it. If you plan to copy, distribute or publicly perform it, or use it in another work, check its source and the permissions you have obtained.
+
+Ambient audio supplied with the program and your imported originals are stored and managed separately. The LICENSE.txt provided with the software explains the licensing of the software and accompanying documentation. Renaming a file, removing it from a library or uninstalling the player does not change anyone's existing rights in the work.
+
+14. Network activity, diagnostics and external services
+
+The current version uses local code and macOS frameworks for the functions described here. There is no Interlude account server. The app does not upload tasks, audio files, track paths, reading progress or focus records to its developers. It contains no advertising, usage-analytics or online recommendation service and does not contact a server to authorize playback. The interface draws on local resources and saved settings.
+
+Starting a timer, checking a task and accepting the document are all handled on this Mac. These actions do not send a remote receipt. For local playback the app does not submit audio snippets to an external recognition service to identify a song. If an import fails, the app may show the filename and issue locally so you can check the chosen file.
+
+macOS and other applications operate under their own settings. Selecting a file from a cloud-drive folder may cause that file provider to download the original to your Mac. Sending someone a system diagnostic report or screenshot is a separate action. Interlude does not create an online account for these activities or control the sharing and sync settings of other software.
+
+15. Devices, backups and shared accounts
+
+Local backup in Settings saves tasks, focus history, personal library and playlist records, scene presets and feature preferences to a file you choose. Audio originals, application and personal-music consent, and reading progress are excluded. Restoring requires validation and confirmation before replacing business data. Paths may be unavailable on another device; import the original audio again when needed. Backup files are not encrypted vaults; choose their storage and sharing locations carefully.
+
+Statistics can export focus records as CSV and a weekly summary as an image. Exports may contain task names, dates and durations. Interlude writes to the location you choose and does not send files to other people. A cloud-folder provider may synchronize files under its own settings. Withdrawing consent or uninstalling does not automatically delete exported files or backups.
+
+“Stored locally” describes where Interlude writes information. System backups, disk migration, external storage and third-party sync tools can copy files or preferences according to their own settings. Restoring a backup can restore tasks and earlier library entries. If an audio original is absent from the backup, a restored entry can remain visible without being playable at its former path.
+
+Application code, personal files and user preferences reside in different locations. Copying just the application to another Mac will not normally move your personal content. Moving an entire login account may also move the user's Library and preferences. Interlude has no online service that compares two machines' lists, synchronizes their content or reconciles conflicting edits.
+
+Separate macOS logins help people sharing a Mac keep their data separate. With one login the app cannot tell which person is at the screen. Before sharing a screenshot, demonstrating the player or copying a list, check whether the task names or song titles currently visible will appear in what you share.
+
+16. Reviewing or withdrawing acceptance
+
+After entering the workspace, you can return to the agreement to read any section, check the document version and see which version you actually accepted and when. The decision lives on this Mac for the current user. Clearing settings or moving to an account or device with no acceptance record requires a new check. Opening the review screen or reading a copy of the document does not by itself change your choice.
+
+Withdrawing app-wide acceptance clears the local app-wide acceptance and reading checkpoint, closes the workspace, stops music and pauses a running focus timer. The reader returns. To re-enter, review the document, reach its end and confirm again. Submitted tasks, completed focus records and personal library entries are kept by default; you do not need to duplicate existing tasks to retain them.
+
+Withdrawing personal-music consent locks that feature. Withdrawing app-wide acceptance leaves the whole workspace. Deleting local records is another action. If you only want to prevent personal playback, withdraw in the Personal Music notice. If you want the saved data removed, review the scope of the cleanup described next.
+
+17. Uninstalling and removing data
+
+Factory Reset in Settings requires confirmation. It clears Interlude business records, all feature preferences, reading progress and consent, then returns to the first-use reader. Audio originals, exported backups and reports are not deleted. Older personal libraries are not automatically migrated back after resetting. Export a backup first if you want to keep your business data.
+
+The package installation includes an uninstaller. Review what you wish to remove and confirm before authorizing macOS to remove applications from system locations. The default retains personal data. Reinstalling with preferences intact may restore your tasks, library and an applicable acceptance record. Moving an application to the Trash does not remove every associated file in your user Library.
+
+Choosing to clear the current user's data removes Interlude's saved task file, main application preferences and associated saved state. This affects local timer history, music settings, playlists, volume, privacy decisions and agreement progress stored there. Cleanup applies to the macOS user performing it. One user's decision is not a deletion request on behalf of other login accounts.
+
+Optional ambient tracks, source code, product documentation and your imported originals are stored in different places. Copy out any edits you want to keep before removing installed source. The uninstaller does not follow personal-library paths to delete audio originals. Backups, documents you copied elsewhere and a legacy independent application have their own locations and removal choices.
+
+18. Software license and accompanying documents
+
+The project includes the MIT License, with the attribution GPT-6 Astra Ultra,lin_ruihgz. The full original text is in LICENSE.txt in the source package, and copies are included with application resources and installer materials. The installer may present the license and privacy document during the same installation. The main application separately records the current user's reading and acceptance of this agreement.
+
+The MIT License sets out permissions to use, copy, modify, publish and distribute the software and accompanying documentation, as well as conditions such as preserving the copyright and permission notices. Consult the original license for its scope when using or redistributing the software. This agreement explains local data handling and feature choices. It adds no restrictions to the freedoms granted by the MIT License and does not exclude mandatory rights you have under applicable law.
+
+If you read the source, you can compare the actual interface, storage locations and included license with the description of the current build. A build modified or repackaged by someone else may behave differently. Check the materials accompanying that build. This agreement describes the Interlude main application supplied here. Other products and modified applications have their own notices.
+
+19. Making your choice
+
+At the final section, consider whether you want this login account to retain your tasks and focus state, whether you understand the separate personal-music decision and whether you know how withdrawal differs from erasure. You do not have to type answers, identify yourself or supply contact details. Checking the box expresses your choice about this version. Its saved acceptance record contains the version and device time.
+
+If you only want the timer or task list, you can enter those views after reading and accepting this agreement. You can decide whether to enable personal audio later. The accompanying text of this agreement is also available to read outside the app. Within the application, you still need to reach the end of the full document, check the box and make your own choice.
+
+Once the end of this document is visible, check the box and confirm to enter the workspace. If you do not wish to accept, quit the application. You can later decide separately whether to continue using it, enable Personal Music, withdraw acceptance or clear this user's data, using the corresponding controls.
