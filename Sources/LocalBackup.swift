@@ -34,12 +34,14 @@ enum LocalBackup {
     private static let manifestKeys: Set<String> = ["format", "version", "created", "tasks", "preferences", "includesPersonalMusic"]
 
     private enum ValueRule {
-        case option([String]), level, toggle, identifier, focus, extras, tracks, lists
+        case option([String]), level, toggle, identifier, focus, extras, tracks, lists, soundPresets, workflow, interfaceScale
     }
 
     private static let rules: [String: ValueRule] = {
         var all: [String: ValueRule] = [
             focusKey: .focus, extrasKey: .extras,
+            "interlude.soundPresets.v1": .soundPresets, "interlude.focusWorkflow.v1": .workflow,
+            settings + "highContrast": .toggle, settings + "interfaceScale": .interfaceScale,
             settings + "language": .option(AppLanguage.allCases.map(\.rawValue)),
             settings + "appearance": .option(AppAppearance.allCases.map(\.rawValue)),
             settings + "theme": .option(AppTheme.allCases.map(\.rawValue)),
@@ -70,10 +72,15 @@ enum LocalBackup {
             guard let value = defaults.object(forKey: key) else { continue }
             // The old combined library could leave a personal UUID in the ambient selection slot.
             if key == ambient + "selection", let id = value as? String, UUID(uuidString: id) != nil { continue }
-            values[key] = value
+            if key == "interlude.soundPresets.v1", let data = value as? Data {
+                values[key] = try SoundPresetStore.portableBackupData(data, includePersonalMusic: includePersonal)
+            } else if key == "interlude.focusWorkflow.v1", let data = value as? Data {
+                guard let sanitized = FocusWorkflowStore.sanitizedBackupData(data) else { throw BackupError.format }
+                values[key] = sanitized
+            } else { values[key] = value }
         }
         values[focusKey] = try focus.backupSnapshot()
-        let manifest: [String: Any] = ["format": signature, "version": 1, "created": Date(),
+        let manifest: [String: Any] = ["format": signature, "version": 2, "created": Date(),
             "tasks": try JSONEncoder().encode(tasks.itemsForBackup()), "preferences": values,
             "includesPersonalMusic": includePersonal]
         let data = try PropertyListSerialization.data(fromPropertyList: manifest, format: .binary, options: 0)
@@ -95,7 +102,7 @@ enum LocalBackup {
               Set(root.keys) == manifestKeys, root["format"] as? String == signature,
               let version = root["version"] as? NSNumber, isNumber(version),
               CFNumberIsFloatType(unsafeBitCast(version, to: CFNumber.self)) == false else { throw BackupError.format }
-        guard version == 1 else { throw BackupError.version }
+        guard version == 1 || version == 2 else { throw BackupError.version }
         guard let date = root["created"] as? Date, date.timeIntervalSinceReferenceDate.isFinite,
               let includePersonal = root["includesPersonalMusic"] as? NSNumber, !isNumber(includePersonal),
               let values = root["preferences"] as? [String: Any], values[focusKey] != nil,
@@ -130,6 +137,14 @@ enum LocalBackup {
         case .extras:
             guard let data = value as? Data else { throw BackupError.format }
             try FocusExtrasStore.validateBackup(data)
+        case .soundPresets:
+            guard let data = value as? Data else { throw BackupError.format }
+            guard SoundPresetStore.validateBackupData(data) else { throw BackupError.format }
+        case .workflow:
+            guard let data = value as? Data else { throw BackupError.format }
+            guard FocusWorkflowStore.validateBackupData(data) else { throw BackupError.format }
+        case .interfaceScale:
+            guard let n = value as? NSNumber, isNumber(n), [1.0, 1.1, 1.2].contains(n.doubleValue) else { throw BackupError.format }
         case .tracks, .lists:
             guard value is Data else { throw BackupError.format }
         }
@@ -142,14 +157,7 @@ enum LocalBackup {
     }
 
     private static func validatedTasks(_ data: Data) throws -> [InterludeTask] {
-        let items = try rows(data, limit: 100_000)
-        for item in items {
-            guard Set(item.keys) == ["id", "title", "completed"], let completed = item["completed"] as? NSNumber,
-                  !isNumber(completed) else { throw BackupError.format }
-        }
-        let tasks = try JSONDecoder().decode([InterludeTask].self, from: data)
-        guard Set(tasks.map(\.id)).count == tasks.count, tasks.allSatisfy({ validString($0.title) }) else { throw BackupError.format }
-        return tasks
+        try TaskStore.validateBackupItems(data)
     }
 
     private static func checkMusicReferences(_ values: [String: Any]) throws {
@@ -186,6 +194,12 @@ enum LocalBackup {
         var restored = previous
         for key in rules.keys where archive.includesPersonalMusic || !key.hasPrefix(personal) {
             restored[key] = archive.preferences[key]
+        }
+        // Device-specific file selections are never imported or retained by restore.
+        restored["interlude.focusWorkflow.files.v1"] = nil
+        if let data = restored["interlude.focusWorkflow.v1"] as? Data {
+            guard let sanitized = FocusWorkflowStore.sanitizedBackupData(data) else { throw BackupError.format }
+            restored["interlude.focusWorkflow.v1"] = sanitized
         }
         if archive.includesPersonalMusic {
             // Explicitly replacing this library must not re-add removed songs from a legacy installation.

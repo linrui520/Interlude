@@ -1,0 +1,35 @@
+间奏 Interlude Pre-2
+内部版本 2.3 · 构建 16 · 2026-11-22
+Internal version 2.3 · Build 16 · 2026-11-22
+
+简体中文
+
+这是 Pre-2 预览版本。此前的 2.2、Pre-1 等发布文件保留各自的版本身份。本次继续提供已有计时、待办、音乐、统计、本地备份、场景与每日目标，并增加以下七项改进：
+
+1. 中断计时恢复：睡眠、退出或计时执行中断后，由你选择继续、只补记中断前已用时间或放弃。中断期间的时间不自动补算为完整专注。
+2. 专注小结：记录收获与下一步，可在统计页重新编辑，随本地备份保存；CSV 导出包含这些文字。
+3. 子步骤与预计轮数：一层子步骤可分别编辑和勾选，主事项可设 1–99 轮预计，并对照实际完整轮数与记录分钟数。
+4. 混音预设：保存曲目或歌单、音乐开关、音乐音量及四路合成声景，可应用、改名或删除。
+5. 一键专注流程：默认关闭。主动启用后，新专注可应用预设、打开明确选择的文档，并在结束时淡出。不能选择应用或脚本作为启动项。
+6. macOS 快捷指令：开始专注、暂停计时、添加待办、按名称播放预设；当前应用协议、个人音乐同意及中断恢复决定仍然有效。
+7. 无障碍与键盘：新增 110%/120% 界面与文字大小、增强对比度，并完善键盘入口及 VoiceOver 标签。
+
+协议更新至 2026-11-22.1，中英仍各十九节，全文连续滚动，没有停留计时。升级须自行阅读并确认；安装许可不能代替应用内同意。
+旧待办与专注记录可读取。新备份包括子步骤、预计、回顾与混音，不带音频/文档原件、同意记录或本机文档权限。恢复后专注流程与打开文档保持关闭，需重新选择并启用。应用没有云同步。关于使用步骤与备份覆盖范围，请阅读随附使用说明。
+本版本为本地构建，尚未完成 Apple Developer ID 签名与公证。MIT 许可与署名保持不变。
+
+English
+
+This is the Pre-2 preview. Earlier 2.2, Pre-1 and other release files retain their separate version identities. Existing timing, tasks, music, statistics, local backup, scenes and daily goals remain available, with seven additions:
+
+1. Interrupted-session recovery: after sleep, exit or timer interruption, choose to resume, record only pre-interruption elapsed time, or discard. Time during the interruption is not automatically credited as completed focus.
+2. Session summaries: capture reflections and next steps, edit them again in Statistics, retain them in local backups, and include them in CSV exports.
+3. Subtasks and estimates: edit and check one level of subtasks; set 1–99 planned rounds and compare with actual completed rounds and recorded minutes.
+4. Saved mixes: save track or playlist selection, music on/off, music volume and all four synthesized soundscapes; apply, rename or delete presets.
+5. Focus Routine: off by default. Once enabled, new focus can apply a mix, open explicitly selected documents and fade audio at the end. Apps and scripts are not accepted as launch targets.
+6. macOS Shortcuts: start focus, pause timing, add a task or play a preset by name. The current app agreement, Personal Music consent and interruption recovery decisions still apply.
+7. Accessibility and keyboard access: 110%/120% interface and text size, increased contrast, keyboard entry points and improved VoiceOver labels.
+
+The agreement is now version 2026-11-22.1, still nineteen sections in each language, freely scrolling without waiting requirements. Upgrading requires your review and confirmation; installer acceptance does not replace in-app consent.
+Earlier task and focus data remains readable. New backups include subtasks, estimates, notes and mixes, excluding audio/document originals, consent and device-specific document access. Restoration leaves the routine and document opening disabled; select files again and enable them deliberately. Interlude has no cloud sync. See the guides for operating instructions and backup replacement scope.
+This locally built version has not received Apple Developer ID signing or notarization. The MIT license and attribution are unchanged.

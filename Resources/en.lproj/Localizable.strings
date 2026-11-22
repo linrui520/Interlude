@@ -1,0 +1,16 @@
+"Start focus in Interlude" = "Start focus in Interlude";
+"Pause the Interlude timer" = "Pause the Interlude timer";
+"Add an Interlude task" = "Add an Interlude task";
+"Play an Interlude sound preset" = "Play an Interlude sound preset";
+"Task title" = "Task title";
+"Preset name" = "Preset name";
+"Start focus" = "Start focus";
+"Pause timer" = "Pause timer";
+"Add task" = "Add task";
+"Play sound preset" = "Play sound preset";
+"Start or resume focus using your optional focus workflow. An already running focus session is left running." = "Start or resume focus using your optional focus workflow. An already running focus session is left running.";
+"Pause the active timer without resetting its elapsed time." = "Pause the active timer without resetting its elapsed time.";
+"Save a new task to your local Interlude task list." = "Save a new task to your local Interlude task list.";
+"Play a saved music and soundscape preset by its exact name. Personal Music still requires consent in Interlude." = "Play a saved music and soundscape preset by its exact name. Personal Music still requires consent in Interlude.";
+"Add ${taskTitle} to Interlude" = "Add ${taskTitle} to Interlude";
+"Play ${presetName} in Interlude" = "Play ${presetName} in Interlude";

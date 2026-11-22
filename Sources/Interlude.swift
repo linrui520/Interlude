@@ -1,4 +1,5 @@
 import AppKit
+import AppIntents
 import SwiftUI
 
 private enum WorkspacePage: Int, CaseIterable, Identifiable {
@@ -57,6 +58,7 @@ private final class Workspace: ObservableObject {
         self.settings = settings
         focus.onPhaseFinished = { [weak settings] in settings?.playPhaseSound() }
         focus.onFocusCompleted = { [weak music] in music?.focusDidFinish() }
+        focus.onFocusStarted = { [weak music] in music?.focusDidStart() }
         applySettings()
     }
 
@@ -254,11 +256,24 @@ private struct WorkspaceDate: View {
 
 private struct WorkspaceView: View {
     @ObservedObject var workspace: Workspace
+    @EnvironmentObject private var settings: AppSettings
+    @Environment(\.colorSchemeContrast) private var contrast
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     private var reduceMotion: Bool { systemReduceMotion || motionAmount <= 0 }
     @Environment(\.motionAmount) private var motionAmount
 
     var body: some View {
+        GeometryReader { geometry in
+            workspaceContent
+                .frame(width: geometry.size.width / settings.interfaceScale, height: geometry.size.height / settings.interfaceScale)
+                .scaleEffect(settings.interfaceScale, anchor: .topLeading)
+                .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
+        }
+        .frame(minWidth: 940 * settings.interfaceScale, minHeight: 620 * settings.interfaceScale)
+        .id(contrast == .increased ? "contrast-increased" : "contrast-normal")
+    }
+
+    private var workspaceContent: some View {
         HStack(spacing: 0) {
             Sidebar(workspace: workspace)
             VStack(alignment: .leading, spacing: 22) {
@@ -293,7 +308,6 @@ private struct WorkspaceView: View {
             .background(Studio.paper)
         }
         .ignoresSafeArea(.container, edges: .top)
-        .frame(minWidth: 940, minHeight: 620)
         .foregroundStyle(Studio.ink)
         .tint(Studio.orange)
         .animation(reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.92), value: workspace.page)
@@ -310,7 +324,7 @@ private struct WorkspaceView: View {
         case .tasks: TaskWorkspaceView(workspace: workspace, focus: workspace.focus)
         case .music: MusicWorkspacePage(library: workspace.music)
         case .statistics: StatisticsPage(model: workspace.focus)
-        case .settings: AppSettingsPage(settings: workspace.settings, shortcut: workspace.shortcut, focus: workspace.focus, tasks: workspace.tasks, onWillRestore: workspace.prepareForRestore, onDidRestore: workspace.onRestored, onDidReset: workspace.onReset)
+        case .settings: AppSettingsPage(settings: workspace.settings, shortcut: workspace.shortcut, focus: workspace.focus, tasks: workspace.tasks, music: workspace.music, onWillRestore: workspace.prepareForRestore, onDidRestore: workspace.onRestored, onDidReset: workspace.onReset)
         }
     }
 }
@@ -322,7 +336,7 @@ private struct TaskWorkspaceView: View {
         TasksPage(store: workspace.tasks, startFocus: { task in
             focus.startTask(task)
             workspace.page = .focus
-        }, focusMinutes: { id in focus.focusMinutes(for: id) })
+        }, focusMinutes: { id in focus.focusMinutes(for: id) }, completedRounds: { id in focus.completedRounds(for: id) })
     }
 }
 
@@ -339,6 +353,24 @@ struct InterludeApp: App {
     @StateObject private var launch = LaunchPresentation()
     @State private var showingAgreement = false
     @Environment(\.openWindow) private var openWindow
+
+    init() {
+        let agreement = AppAgreementModel()
+        let settings = AppSettings()
+        let session = InterludeSession()
+        _agreement = StateObject(wrappedValue: agreement)
+        _settings = StateObject(wrappedValue: settings)
+        _session = StateObject(wrappedValue: session)
+        InterludeAutomation.shared.handler = { [weak agreement, weak settings, weak session] action in
+            guard let agreement, let settings, let session, agreement.hasAccepted else {
+                throw InterludeAutomationError(message: L("请先在间奏中阅读并接受当前使用协议。", "Read and accept the current agreement in Interlude first."))
+            }
+            session.unlock(using: agreement, settings: settings)
+            InterludeAutomation.shared.showWorkspace?()
+            return try session.performAutomation(action)
+        }
+        InterludeShortcuts.updateAppShortcutParameters()
+    }
 
     var body: some Scene {
         Window(L("间奏", "Interlude"), id: "workspace") {
@@ -358,6 +390,12 @@ struct InterludeApp: App {
             .environment(\.locale, settings.locale)
             .environment(\.motionAmount, settings.reduceMotion ? 0 : settings.motion)
             .preferredColorScheme(settings.appearance.colorScheme)
+            .onAppear {
+                InterludeAutomation.shared.showWorkspace = {
+                    openWindow(id: "workspace")
+                    NSApp.activate(ignoringOtherApps: true)
+                }
+            }
             .onChange(of: agreement.hasAccepted, initial: true) { _, accepted in
                 if accepted { session.unlock(using: agreement, settings: settings) } else { session.lock() }
             }
@@ -388,6 +426,10 @@ struct InterludeApp: App {
                     .disabled(!agreement.hasAccepted)
                 }
                 Divider()
+                Button(L("开始 / 暂停计时", "Start / pause timer")) { session.workspace?.focus.toggle() }
+                    .keyboardShortcut("p", modifiers: [.command, .shift]).disabled(!agreement.hasAccepted)
+                Button(L("重置计时与轮次", "Reset timer and cycle")) { session.workspace?.focus.reset() }
+                    .keyboardShortcut("r", modifiers: [.command, .shift]).disabled(!agreement.hasAccepted)
                 Button(L("悬浮迷你播放器", "Floating mini player")) { session.workspace?.showFloating() }
                     .disabled(!agreement.hasAccepted)
             }
@@ -396,6 +438,16 @@ struct InterludeApp: App {
                     session.workspace?.page = .settings
                     openWindow(id: "workspace")
                 }.keyboardShortcut(",", modifiers: .command).disabled(!agreement.hasAccepted)
+            }
+            CommandGroup(replacing: .appInfo) {
+                Button(L("关于间奏", "About Interlude")) {
+                    NSApp.orderFrontStandardAboutPanel(options: [
+                        .applicationName: L("间奏", "Interlude"),
+                        .applicationVersion: L("Pre-2 · 预发布", "Pre-2 · Prerelease"),
+                        .version: "2.3 (16)",
+                        .credits: NSAttributedString(string: "MIT License · GPT-6 Astra Ultra,lin_ruihgz")
+                    ])
+                }
             }
             CommandGroup(after: .appInfo) {
                 Button(L("隐私政策与使用协议…", "Privacy Policy & Terms…")) {
@@ -445,6 +497,28 @@ private final class InterludeSession: ObservableObject {
             settings.reload()
         }
         workspace = fresh
+    }
+
+    func performAutomation(_ action: InterludeAutomationAction) throws -> String {
+        guard let workspace else { throw InterludeAutomationError(message: L("工作区尚未准备好，请重新打开间奏。", "The workspace is not ready. Reopen Interlude.")) }
+        switch action {
+        case .startFocus:
+            workspace.page = .focus
+            guard !workspace.focus.hasRecovery else { throw InterludeAutomationError(message: L("有一轮中断的计时，请先在间奏中选择恢复、补记或放弃。", "An interrupted timer needs your decision in Interlude: resume, record elapsed time, or discard.")) }
+            workspace.focus.startFocus()
+            return L("专注计时已开始。", "Focus is running.")
+        case .pauseFocus:
+            workspace.focus.pauseFocus()
+            return L("计时已暂停。", "The timer is paused.")
+        case .addTask(let title):
+            guard workspace.tasks.add(title) else { throw InterludeAutomationError(message: workspace.tasks.storageError ?? L("请填写有效的待办名称。", "Enter a valid task title.")) }
+            workspace.page = .tasks
+            return L("待办已保存。", "Task saved.")
+        case .playPreset(let name):
+            workspace.page = .music
+            guard workspace.music.playPreset(named: name) else { throw InterludeAutomationError(message: L("无法播放该预设。请核对预设名称、曲目是否可用，以及个人音乐是否已授权。", "The preset could not be played. Check its name, available tracks, and Personal Music consent in Interlude.")) }
+            return L("声音预设已应用。", "Sound preset applied.")
+        }
     }
 
     func lock() {

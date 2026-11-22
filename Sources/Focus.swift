@@ -30,14 +30,38 @@ private enum FocusMode: String, CaseIterable, Codable {
     }
 }
 
-struct FocusRecord: Codable {
+struct FocusRecord: Codable, Identifiable {
+    var id = UUID()
     let end: Date
     let seconds: Int
     var taskID: UUID?
     var taskTitle: String?
     var isPartial: Bool?
+    var reflection: String?
+    var nextStep: String?
 
     var completedRound: Bool { isPartial != true }
+
+    init(end: Date, seconds: Int, taskID: UUID? = nil, taskTitle: String? = nil, isPartial: Bool? = nil) {
+        self.end = end
+        self.seconds = seconds
+        self.taskID = taskID
+        self.taskTitle = taskTitle
+        self.isPartial = isPartial
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, end, seconds, taskID, taskTitle, isPartial, reflection, nextStep }
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        end = try values.decode(Date.self, forKey: .end)
+        seconds = try values.decode(Int.self, forKey: .seconds)
+        taskID = try values.decodeIfPresent(UUID.self, forKey: .taskID)
+        taskTitle = try values.decodeIfPresent(String.self, forKey: .taskTitle)
+        isPartial = try values.decodeIfPresent(Bool.self, forKey: .isPartial)
+        reflection = try values.decodeIfPresent(String.self, forKey: .reflection)
+        nextStep = try values.decodeIfPresent(String.self, forKey: .nextStep)
+    }
 }
 
 private struct FocusState: Codable {
@@ -52,56 +76,59 @@ private struct FocusState: Codable {
     var completedInCycle: Int?
     var selectedTaskID: UUID?
     var selectedTaskTitle: String?
+    var checkpointAt: Date?
+    var recoveryPending: Bool?
 
-    var nextRound: Int {
-        min(3, max(0, completedInCycle ?? 0)) + 1
-    }
-
+    var nextRound: Int { min(3, max(0, completedInCycle ?? 0)) + 1 }
     func minutes(for mode: FocusMode) -> Int {
         min(180, max(1, durations[mode.rawValue] ?? mode.standardMinutes))
     }
 }
 
+enum FocusRecoveryChoice { case resume, recordElapsed, discard }
+
 @MainActor
 final class FocusModel: ObservableObject {
     @Published private var state: FocusState
+    @Published private(set) var latestSummaryID: UUID?
     let extras: FocusExtrasStore
     var onPhaseFinished: (() -> Void)?
     var onFocusCompleted: (() -> Void)?
+    var onFocusStarted: (() -> Void)?
     private let defaults: UserDefaults
     private let key = "interlude.focus.v1"
+    private let now: () -> Date
     private var clock: AnyCancellable?
-    private var dayChange: AnyCancellable?
+    private var observers: [AnyCancellable] = []
+    private var clockGeneration = UUID()
+    private var lastTick: Date?
+    private var lastPersisted: Date?
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init, observeSystemEvents: Bool = true) {
         self.defaults = defaults
+        self.now = now
         extras = FocusExtrasStore(defaults: defaults)
         state = defaults.data(forKey: key).flatMap { try? JSONDecoder().decode(FocusState.self, from: $0) } ?? FocusState()
-        if state.completedInCycle == nil {
-            state.completedInCycle = state.completed.count % 4
-            persist()
+        if state.completedInCycle == nil { state.completedInCycle = state.completed.filter(\.completedRound).count % 4 }
+        // Persist migrated record IDs once. A persisted deadline is never credited on launch.
+        if state.deadline != nil { suspendForRecovery(at: state.checkpointAt ?? now(), useCheckpoint: true) }
+        persist()
+        if observeSystemEvents {
+            observers.append(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)
+                .receive(on: RunLoop.main).sink { [weak self] _ in self?.objectWillChange.send() })
+            observers.append(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification)
+                .receive(on: RunLoop.main).sink { [weak self] _ in self?.handleSystemSleep() })
+            observers.append(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)
+                .receive(on: RunLoop.main).sink { [weak self] _ in self?.handleSystemWake() })
+            observers.append(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)
+                .receive(on: RunLoop.main).sink { [weak self] _ in self?.handleSystemSleep() })
         }
-        if state.deadline != nil {
-            tick(sound: false)
-            if state.deadline != nil { runClock() }
-        }
-        dayChange = NotificationCenter.default.publisher(for: .NSCalendarDayChanged)
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.objectWillChange.send() }
     }
 
     var isRunning: Bool { state.deadline != nil }
-    func pauseForAgreement() {
-        guard isRunning else { return }
-        let now = Date()
-        tick(at: now, sound: false)
-        guard let end = state.deadline else { return }
-        state.pausedInterval = max(0, end.timeIntervalSince(now))
-        state.pausedAt = now
-        state.deadline = nil
-        clock = nil
-        persist()
-    }
+    var hasRecovery: Bool { state.recoveryPending == true }
+    var recoveryElapsedSeconds: Int { mode == .focus ? max(0, minutes(mode) * 60 - state.remaining) : 0 }
+    var recoveryDate: Date? { state.pausedAt }
     var remainingLabel: String { String(format: "%02d:%02d", state.remaining / 60, state.remaining % 60) }
     fileprivate var mode: FocusMode { state.mode }
     var nextRound: Int { state.nextRound }
@@ -110,15 +137,35 @@ final class FocusModel: ObservableObject {
     var remainingFraction: Double {
         min(1, max(0, (state.pausedInterval ?? Double(state.remaining)) / Double(minutes(mode) * 60)))
     }
-    var canReset: Bool { finished || isMidSession || nextRound != 1 || mode != .focus }
+    var canReset: Bool { !hasRecovery && (finished || isMidSession || nextRound != 1 || mode != .focus) }
     fileprivate func minutes(_ mode: FocusMode) -> Int { state.minutes(for: mode) }
     var isBreak: Bool { mode != .focus }
     var modeLabel: String { mode.name }
     var sceneDurations: [Int] { [minutes(.focus), minutes(.shortBreak), minutes(.longBreak)] }
+    var selectedTaskID: UUID? { state.selectedTaskID }
+    var selectedTaskTitle: String? { state.selectedTaskTitle }
+    var todayCount: Int { today.filter(\.completedRound).count }
+    var todayMinutes: Int { today.reduce(0) { $0 + $1.seconds } / 60 }
+    private var today: [FocusRecord] { statisticsRecords.filter { Calendar.current.isDate($0.end, inSameDayAs: now()) } }
+    var reviewRecords: [FocusRecord] { state.completed.reversed() }
+    var latestSummary: FocusRecord? { state.completed.first { $0.id == latestSummaryID } }
+
+    func saveReview(id: UUID, reflection: String, nextStep: String) {
+        guard let index = state.completed.firstIndex(where: { $0.id == id }) else { return }
+        func clean(_ value: String) -> String? {
+            let trimmed = String(value.prefix(4_000)).trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        state.completed[index].reflection = clean(reflection)
+        state.completed[index].nextStep = clean(nextStep)
+        persist()
+    }
+    func dismissSummary() { latestSummaryID = nil }
 
     func applyScene(_ scene: FocusPreset) {
-        guard scene.valid else { return }
+        guard scene.valid, !hasRecovery else { return }
         finishInterruptedFocus()
+        guard !hasRecovery else { return }
         state.durations = [FocusMode.focus.rawValue: scene.focusMinutes,
                            FocusMode.shortBreak.rawValue: scene.shortMinutes,
                            FocusMode.longBreak.rawValue: scene.longMinutes]
@@ -127,17 +174,18 @@ final class FocusModel: ObservableObject {
     }
 
     func backupSnapshot() throws -> Data {
-        let now = Date()
+        // A backup cannot finish a phase or fire completion side effects.
         var copy = state
-        if let end = copy.deadline, end <= now {
-            copy = Self.advance(copy, completedAt: end, nextStart: now)
-        }
-        if let deadline = copy.deadline {
-            let interval = min(Double(copy.minutes(for: copy.mode) * 60), max(0, deadline.timeIntervalSince(now)))
-            copy.pausedInterval = interval
-            copy.pausedAt = now
-            copy.remaining = Int(ceil(interval))
+        if let end = copy.deadline {
+            let timestamp = now()
+            let gap = lastTick.map { timestamp.timeIntervalSince($0) } ?? 0
+            let interval = gap >= 0 && gap <= 5 ? max(1, end.timeIntervalSince(timestamp)) : Double(copy.remaining)
+            copy.pausedInterval = min(Double(copy.minutes(for: copy.mode) * 60), interval)
+            copy.remaining = Int(ceil(copy.pausedInterval!))
+            copy.pausedAt = lastTick ?? copy.checkpointAt ?? timestamp
             copy.deadline = nil
+            copy.checkpointAt = nil
+            copy.recoveryPending = true
         }
         let data = try JSONEncoder().encode(copy)
         try Self.validateBackup(data)
@@ -146,11 +194,11 @@ final class FocusModel: ObservableObject {
 
     static func validateBackup(_ data: Data) throws {
         let allowed = ["mode", "durations", "remaining", "deadline", "pausedInterval", "pausedAt",
-                       "completed", "finished", "completedInCycle", "selectedTaskID", "selectedTaskTitle"]
+                       "completed", "finished", "completedInCycle", "selectedTaskID", "selectedTaskTitle", "checkpointAt", "recoveryPending"]
         guard let raw = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               Set(raw.keys).isSubset(of: allowed),
               let records = raw["completed"] as? [[String: Any]], records.count <= 200_000,
-              records.allSatisfy({ Set($0.keys).isSubset(of: ["end", "seconds", "taskID", "taskTitle", "isPartial"]) })
+              records.allSatisfy({ Set($0.keys).isSubset(of: ["id", "end", "seconds", "taskID", "taskTitle", "isPartial", "reflection", "nextStep"]) })
         else { throw FocusExtrasError.invalidBackup }
         let candidate = try JSONDecoder().decode(FocusState.self, from: data)
         let maximum = candidate.minutes(for: candidate.mode) * 60
@@ -163,52 +211,55 @@ final class FocusModel: ObservableObject {
               (0...3).contains(candidate.completedInCycle ?? 0),
               candidate.pausedInterval.map({ $0.isFinite && $0 > 0 && $0 <= Double(maximum) && Int(ceil($0)) == candidate.remaining }) ?? true,
               candidate.pausedAt.map(FocusExtrasStore.validDate) ?? true,
+              candidate.checkpointAt.map(FocusExtrasStore.validDate) ?? true,
               candidate.pausedAt == nil || candidate.pausedInterval != nil,
+              candidate.recoveryPending != true || (!candidate.finished && candidate.pausedInterval != nil),
               (candidate.selectedTaskTitle?.utf8.count ?? 0) <= 65_536,
+              Set(candidate.completed.map(\.id)).count == candidate.completed.count,
               candidate.completed.allSatisfy({
                   (1...10800).contains($0.seconds) && FocusExtrasStore.validDate($0.end)
                       && ($0.taskTitle?.utf8.count ?? 0) <= 65_536
+                      && ($0.reflection?.utf8.count ?? 0) <= 65_536
+                      && ($0.nextStep?.utf8.count ?? 0) <= 65_536
               })
         else { throw FocusExtrasError.invalidBackup }
     }
-    var selectedTaskID: UUID? { state.selectedTaskID }
-    var selectedTaskTitle: String? { state.selectedTaskTitle }
-    var todayCount: Int { today.filter(\.completedRound).count }
-    var todayMinutes: Int { today.reduce(0) { $0 + $1.seconds } / 60 }
-    private var today: [FocusRecord] { statisticsRecords.filter { Calendar.current.isDateInToday($0.end) } }
 
-    private func activeRecord(at now: Date) -> FocusRecord? {
-        guard mode == .focus, !finished else { return nil }
+    private func activeRecord(at timestamp: Date, includeRecovery: Bool = false) -> FocusRecord? {
+        guard mode == .focus, !finished, !hasRecovery || includeRecovery else { return nil }
         let duration = minutes(.focus) * 60
-        let timeLeft = state.deadline?.timeIntervalSince(now) ?? state.pausedInterval ?? Double(state.remaining)
+        // The last observed timer value excludes an unobserved sleep or clock jump.
+        let timeLeft = state.pausedInterval ?? Double(state.remaining)
         let elapsed = min(duration, max(0, duration - Int(ceil(timeLeft))))
         guard elapsed > 0 else { return nil }
-        return FocusRecord(end: state.pausedAt ?? now, seconds: elapsed, taskID: selectedTaskID,
+        return FocusRecord(end: state.pausedAt ?? lastTick ?? timestamp, seconds: elapsed, taskID: selectedTaskID,
                            taskTitle: selectedTaskTitle, isPartial: true)
     }
 
     var statisticsRecords: [FocusRecord] {
-        if let active = activeRecord(at: Date()) { return state.completed + [active] }
+        if let active = activeRecord(at: now()) { return state.completed + [active] }
         return state.completed
     }
 
     func focusMinutes(for taskID: UUID) -> Int {
         statisticsRecords.lazy.filter { $0.taskID == taskID }.reduce(0) { $0 + $1.seconds } / 60
     }
+    func completedRounds(for taskID: UUID) -> Int { state.completed.filter { $0.taskID == taskID && $0.completedRound }.count }
 
-    // Credit the outgoing focus segment once, including elapsed time from before a pause.
     private func finishInterruptedFocus() {
-        let now = Date()
-        tick(at: now, sound: false)
-        if let partial = activeRecord(at: now) { state.completed.append(partial) }
+        tick(sound: false)
+        guard !hasRecovery else { return }
+        if let partial = activeRecord(at: now()) { state.completed.append(partial) }
     }
 
     func startTask(_ task: InterludeTask) {
+        guard !hasRecovery else { return }
         tick(sound: false)
+        guard !hasRecovery else { return }
         if mode == .focus, selectedTaskID == task.id {
             state.selectedTaskTitle = task.title
             persist()
-            if !isRunning { toggle() }
+            startFocus()
             return
         }
         finishInterruptedFocus()
@@ -216,86 +267,175 @@ final class FocusModel: ObservableObject {
         state.selectedTaskID = task.id
         state.selectedTaskTitle = task.title
         resetPhase()
-        toggle()
+        startFocus()
     }
 
     func clearTask() {
-        guard selectedTaskID != nil else { return }
+        guard selectedTaskID != nil, !hasRecovery else { return }
         finishInterruptedFocus()
+        guard !hasRecovery else { return }
         state.selectedTaskID = nil
         state.selectedTaskTitle = nil
         if mode == .focus { resetPhase() } else { persist() }
     }
 
+    /// Idempotent focus action for commands and App Intents. Recovery requires an explicit choice.
+    func startFocus() {
+        guard !hasRecovery else { return }
+        if mode != .focus { state.mode = .focus; resetPhase() }
+        guard !isRunning else { return }
+        startCurrentPhase()
+    }
+    func pauseFocus() { pauseCurrentPhase() }
+    func pauseForAgreement() { pauseCurrentPhase() }
+
     func toggle() {
-        let now = Date()
-        if isRunning {
-            tick(at: now)
-            guard let end = state.deadline else { return }
-            state.pausedInterval = end.timeIntervalSince(now)
-            state.pausedAt = now
-            state.deadline = nil
-            clock = nil
-        } else {
-            if finished { resetPhase() }
-            state.deadline = now.addingTimeInterval(state.pausedInterval ?? Double(state.remaining))
-            state.pausedInterval = nil
-            state.pausedAt = nil
-            runClock()
-        }
+        guard !hasRecovery else { return }
+        if isRunning { pauseCurrentPhase() } else { startCurrentPhase() }
+    }
+
+    private func startCurrentPhase(isRecovery: Bool = false) {
+        guard !isRunning, !hasRecovery else { return }
+        if finished { resetPhase() }
+        let fresh = state.pausedInterval == nil && state.remaining == minutes(mode) * 60 && !isRecovery
+        let timestamp = now()
+        state.deadline = timestamp.addingTimeInterval(state.pausedInterval ?? Double(state.remaining))
+        state.pausedInterval = nil
+        state.pausedAt = nil
+        state.checkpointAt = timestamp
+        lastTick = timestamp
+        persist()
+        runClock()
+        if fresh && mode == .focus { onFocusStarted?() }
+    }
+
+    private func pauseCurrentPhase() {
+        guard isRunning else { return }
+        let timestamp = now()
+        tick(at: timestamp, sound: false)
+        guard let end = state.deadline else { return }
+        state.pausedInterval = max(1, end.timeIntervalSince(timestamp))
+        state.remaining = Int(ceil(state.pausedInterval!))
+        state.pausedAt = timestamp
+        state.deadline = nil
+        state.checkpointAt = nil
+        stopClock()
         persist()
     }
 
+    func handleSystemSleep() {
+        guard isRunning else { return }
+        let timestamp = now()
+        let gap = lastTick.map { timestamp.timeIntervalSince($0) } ?? .infinity
+        suspendForRecovery(at: timestamp, useCheckpoint: gap < 0 || gap > 5)
+    }
+    func handleSystemWake() {
+        guard isRunning else { return }
+        // Backstop if the sleep notification was missed or delivered late.
+        suspendForRecovery(at: lastTick ?? state.checkpointAt ?? now(), useCheckpoint: true)
+    }
+
+    private func suspendForRecovery(at timestamp: Date, useCheckpoint: Bool) {
+        guard let deadline = state.deadline else { return }
+        let maximum = Double(minutes(mode) * 60)
+        let interval = useCheckpoint ? Double(state.remaining) : deadline.timeIntervalSince(timestamp)
+        state.pausedInterval = min(maximum, max(1, interval))
+        state.remaining = Int(ceil(state.pausedInterval!))
+        state.pausedAt = useCheckpoint ? state.checkpointAt ?? lastTick ?? timestamp : timestamp
+        state.deadline = nil
+        state.checkpointAt = nil
+        state.recoveryPending = true
+        stopClock()
+        persist()
+    }
+
+    func resolveRecovery(_ choice: FocusRecoveryChoice) {
+        guard hasRecovery else { return }
+        if choice == .recordElapsed, let record = activeRecord(at: now(), includeRecovery: true) {
+            state.completed.append(record)
+            latestSummaryID = record.id
+        }
+        state.recoveryPending = nil
+        if choice == .resume {
+            startCurrentPhase(isRecovery: true)
+        } else {
+            state.mode = .focus
+            resetPhase()
+        }
+    }
+
     func reset() {
+        guard !hasRecovery else { return }
         finishInterruptedFocus()
+        guard !hasRecovery else { return }
         state.completedInCycle = 0
         state.mode = .focus
         resetPhase()
     }
 
     private func resetPhase() {
-        clock = nil
+        stopClock()
         state.deadline = nil
         state.pausedInterval = nil
         state.pausedAt = nil
+        state.checkpointAt = nil
+        state.recoveryPending = nil
         state.finished = false
         state.remaining = minutes(mode) * 60
         persist()
     }
 
     fileprivate func select(_ next: FocusMode) {
+        guard !hasRecovery else { return }
         finishInterruptedFocus()
+        guard !hasRecovery else { return }
         state.mode = next
         resetPhase()
     }
 
     fileprivate func setMinutes(_ value: Int) {
+        guard !hasRecovery else { return }
         finishInterruptedFocus()
+        guard !hasRecovery else { return }
         state.durations[mode.rawValue] = min(180, max(1, value))
         resetPhase()
     }
 
+    private func stopClock() { clock = nil; clockGeneration = UUID(); lastTick = nil }
     private func runClock() {
+        clockGeneration = UUID()
+        let generation = clockGeneration
         clock = Timer.publish(every: 0.25, tolerance: 0.08, on: .main, in: .common)
-            .autoconnect().sink { [weak self] _ in self?.tick() }
+            .autoconnect().sink { [weak self] _ in
+                guard let self, self.clockGeneration == generation else { return }
+                self.tick()
+            }
     }
 
-    private func tick(at now: Date = Date(), sound: Bool = true) {
+    private func tick(at timestamp: Date? = nil, sound: Bool = true) {
+        let timestamp = timestamp ?? now()
         guard let end = state.deadline else { return }
-        let remaining = max(0, Int(ceil(end.timeIntervalSince(now))))
-        if remaining > 0 {
-            if state.remaining != remaining { state.remaining = remaining }
+        if let lastTick, timestamp.timeIntervalSince(lastTick) > 5 || timestamp < lastTick {
+            suspendForRecovery(at: lastTick, useCheckpoint: true)
             return
         }
-
+        lastTick = timestamp
+        let remaining = max(0, Int(ceil(end.timeIntervalSince(timestamp))))
+        if remaining > 0 {
+            if state.remaining != remaining { state.remaining = remaining }
+            state.checkpointAt = timestamp
+            if lastPersisted.map({ timestamp.timeIntervalSince($0) >= 5 }) ?? true { persist() }
+            return
+        }
         let completedFocus = state.mode == .focus
-        state = Self.advance(state, completedAt: end, nextStart: now)
+        state = Self.advance(state, completedAt: end, nextStart: timestamp)
+        if completedFocus { latestSummaryID = state.completed.last?.id }
         persist()
-        if completedFocus { onFocusCompleted?() }
+        if completedFocus { onFocusCompleted?() } else { onFocusStarted?() }
         if sound { onPhaseFinished?() }
     }
 
-    private static func advance(_ state: FocusState, completedAt end: Date, nextStart now: Date) -> FocusState {
+    private static func advance(_ state: FocusState, completedAt end: Date, nextStart timestamp: Date) -> FocusState {
         var next = state
         if state.mode == .focus {
             next.completed.append(FocusRecord(end: end, seconds: state.minutes(for: .focus) * 60,
@@ -303,22 +443,19 @@ final class FocusModel: ObservableObject {
             let completedRound = next.nextRound
             next.completedInCycle = completedRound % 4
             next.mode = completedRound == 4 ? .longBreak : .shortBreak
-        } else {
-            next.mode = .focus
-        }
-
-        // A missed deadline completes the actual session once. Give the newly
-        // started phase its full duration, even when restoring after a long sleep.
+        } else { next.mode = .focus }
         next.remaining = next.minutes(for: next.mode) * 60
-        next.deadline = now.addingTimeInterval(Double(next.remaining))
+        next.deadline = timestamp.addingTimeInterval(Double(next.remaining))
+        next.checkpointAt = timestamp
         next.pausedInterval = nil
         next.pausedAt = nil
+        next.recoveryPending = nil
         next.finished = false
         return next
     }
 
     private func persist() {
-        if let data = try? JSONEncoder().encode(state) { defaults.set(data, forKey: key) }
+        if let data = try? JSONEncoder().encode(state) { defaults.set(data, forKey: key); lastPersisted = now() }
     }
 }
 
@@ -339,8 +476,11 @@ struct FocusPage: View {
         GeometryReader { geo in
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 0) {
+                    if model.hasRecovery { FocusRecoveryCard(model: model).padding(.bottom, 12) }
+                    if model.latestSummary != nil { FocusSummaryBanner(model: model).padding(.bottom, 12) }
                     FocusSceneBar(model: model, extras: model.extras,
                                   onApplyMusic: onApplyMusic, currentMusicID: currentMusicID)
+                        .disabled(model.hasRecovery)
                         .padding(.bottom, 12)
                     hero
                         .frame(height: min(350, max(220, geo.size.height - 257)))
@@ -360,12 +500,13 @@ struct FocusPage: View {
                         .buttonStyle(InterludeButtonStyle())
                         .foregroundStyle(AppPalette.ink.opacity(0.7))
                         .popover(isPresented: $editing, arrowEdge: .bottom) { durationEditor }
+                        .disabled(model.hasRecovery)
                     }
                     .padding(.top, 20)
                     .padding(.bottom, 10)
                     HStack(spacing: 9) {
                         ForEach(FocusMode.allCases, id: \.self) { mode in
-                            modeButton(mode)
+                            modeButton(mode).disabled(model.hasRecovery)
                         }
                     }
                     if let taskTitle = model.selectedTaskTitle {
@@ -374,6 +515,7 @@ struct FocusPage: View {
                             Text(taskTitle).lineLimit(1).truncationMode(.tail)
                             Spacer()
                             Button(L("结束关联", "Unlink task")) { model.clearTask() }
+                                .disabled(model.hasRecovery)
                                 .buttonStyle(InterludeButtonStyle()).foregroundStyle(AppPalette.accent)
                                 .help(L("结束任务关联并保存已专注的时间", "Unlink the task and save its focus time"))
                         }
@@ -446,6 +588,9 @@ struct FocusPage: View {
                             .background(focusCream, in: Capsule())
                             .foregroundStyle(Color(red: 0.12, green: 0.125, blue: 0.115))
                         }.buttonStyle(FocusPressStyle())
+                        .disabled(model.hasRecovery)
+                        .opacity(model.hasRecovery ? 0.45 : 1)
+                        .help(model.hasRecovery ? L("请先在上方选择如何处理这段计时。", "Choose how to handle the interrupted session above first.") : buttonText)
                         Button { model.reset() } label: {
                             Image(systemName: "arrow.counterclockwise")
                                 .font(.system(size: 13, weight: .medium))
@@ -469,6 +614,7 @@ struct FocusPage: View {
     }
 
     private var status: String {
+        if model.hasRecovery { return L("等待恢复", "Recovery needed") }
         if model.finished { return L("本轮已完成", "Session complete") }
         if model.isRunning { return L(model.mode.name + "中", model.mode == .focus ? "Focusing" : "On a break") }
         if model.isMidSession { return L("已暂停", "Paused") }

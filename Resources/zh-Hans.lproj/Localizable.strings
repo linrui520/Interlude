@@ -1,0 +1,16 @@
+"Start focus in Interlude" = "在间奏中开始专注";
+"Pause the Interlude timer" = "暂停间奏计时";
+"Add an Interlude task" = "添加间奏待办";
+"Play an Interlude sound preset" = "播放间奏声音预设";
+"Task title" = "待办名称";
+"Preset name" = "预设名称";
+"Start focus" = "开始专注";
+"Pause timer" = "暂停计时";
+"Add task" = "添加待办";
+"Play sound preset" = "播放声音预设";
+"Start or resume focus using your optional focus workflow. An already running focus session is left running." = "使用已配置的可选专注流程开始或继续专注。已经运行的专注不会被重置。";
+"Pause the active timer without resetting its elapsed time." = "暂停当前计时，保留已用时间。";
+"Save a new task to your local Interlude task list." = "将新待办保存到间奏的本地清单。";
+"Play a saved music and soundscape preset by its exact name. Personal Music still requires consent in Interlude." = "按准确名称播放已保存的音乐与声景组合。个人音乐仍需先在间奏中同意使用。";
+"Add ${taskTitle} to Interlude" = "添加 ${taskTitle} 到间奏";
+"Play ${presetName} in Interlude" = "在间奏中播放 ${presetName}";

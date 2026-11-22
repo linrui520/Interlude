@@ -66,6 +66,7 @@ struct AppSettingsPage: View {
     @ObservedObject var shortcut: GlobalShortcutController
     let focus: FocusModel
     let tasks: TaskStore
+    var music: MusicWorkspaceModel? = nil
     var onWillRestore: () -> Void = {}
     var onDidRestore: () -> Void = {}
     var onDidReset: () -> Void = {}
@@ -95,6 +96,19 @@ struct AppSettingsPage: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
+            Section(L("无障碍", "Accessibility")) {
+                Picker(L("界面与文字大小", "Interface and text size"), selection: $settings.interfaceScale) {
+                    Text("100%").tag(1.0)
+                    Text("110%").tag(1.1)
+                    Text("120%").tag(1.2)
+                }
+                Toggle(L("增强对比度", "Increase contrast"), isOn: $settings.highContrast)
+                Text(L("也会遵循 macOS 的增强对比度和减少动态效果设置。放大后窗口最小尺寸会相应增加，避免裁切内容。", "macOS Increase Contrast and Reduce Motion are also respected. A larger interface increases the minimum window size to keep content visible."))
+                    .font(.caption).foregroundStyle(.secondary)
+                Text(L("⌘1–5 切换页面；⌘⇧P 开始或暂停；⌘⇧R 重置计时与轮次。使用 Tab 在控件间移动；可在系统键盘设置中开启键盘导航。", "⌘1–5 switches pages; ⌘⇧P starts or pauses; ⌘⇧R resets the timer and cycle. Use Tab between controls; enable Keyboard Navigation in macOS keyboard settings when needed."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if let music { FocusWorkflowSettings(library: music) }
             Section(L("启动动画", "Launch animation")) {
                 Picker(L("播放长度", "Length"), selection: $settings.launchMode) {
                     ForEach(LaunchAnimationMode.allCases) { Text($0.title).tag($0) }
@@ -113,6 +127,8 @@ struct AppSettingsPage: View {
                 HStack {
                     Text(L("提示音音量", "Alert volume"))
                     Slider(value: $settings.soundVolume, in: 0...1)
+                        .accessibilityLabel(L("提示音音量", "Alert volume"))
+                        .accessibilityValue("\(Int(settings.soundVolume * 100))%")
                     Button(L("试听", "Preview")) { settings.playPhaseSound() }.disabled(settings.phaseSound == "none")
                 }
                 Toggle(L("音乐淡入淡出", "Fade music in and out"), isOn: $settings.musicFade)
@@ -127,6 +143,12 @@ struct AppSettingsPage: View {
                     Text(status).font(.caption).foregroundStyle(.orange)
                 }
                 Text(L("快捷键在间奏运行时有效。关闭主窗口后，可从菜单栏继续操作。", "The shortcut works while Interlude is running. Use the menu bar after closing the main window."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section(L("快捷指令", "Shortcuts")) {
+                Text(L("在 macOS“快捷指令”中搜索“间奏”或 Interlude，可添加开始专注、暂停计时、添加待办、播放声音预设四种操作。声音预设名称需与音乐页保存的名称一致。", "Search for Interlude in macOS Shortcuts to start focus, pause the timer, add a task, or play a sound preset. Use the exact preset name saved on the Music page."))
+                    .font(.callout)
+                Text(L("首次运行前请打开间奏并接受协议。待恢复的计时需要先在应用中处理；快捷指令不会代替同意或恢复选择。", "Open Interlude and accept its agreement first. Resolve any interrupted timer in the app; shortcuts do not bypass consent or recovery decisions."))
                     .font(.caption).foregroundStyle(.secondary)
             }
             LocalResetSection(tasks: tasks, onWillReset: onWillRestore, onDidReset: onDidReset)
@@ -161,11 +183,15 @@ struct MenuTimerView: View {
             if let title = focus.selectedTaskTitle {
                 Label(title, systemImage: "checklist").font(.caption).lineLimit(2)
             }
+            if focus.hasRecovery {
+                Button(L("处理上次中断的计时…", "Review interrupted timer…"), action: openWorkspace)
+                    .font(.caption)
+            }
             Button(action: focus.toggle) {
                 Label(focus.isRunning ? L("暂停", "Pause") : L("开始 / 继续", "Start / resume"),
                       systemImage: focus.isRunning ? "pause.fill" : "play.fill")
                     .frame(maxWidth: .infinity)
-            }.buttonStyle(.borderedProminent).tint(AppPalette.accent)
+            }.buttonStyle(.borderedProminent).tint(AppPalette.accent).disabled(focus.hasRecovery)
             Divider()
             Button(L("打开间奏", "Open Interlude"), action: openWorkspace)
             Button(L("悬浮迷你播放器", "Floating mini player"), action: showFloating)
@@ -237,6 +263,7 @@ private struct FloatingPlayerView: View {
                     Image(systemName: focus.isRunning ? "pause.circle.fill" : "play.circle.fill")
                         .font(.system(size: 31)).foregroundStyle(AppPalette.accent)
                 }.buttonStyle(.plain).help(L("开始 / 暂停专注", "Start / pause focus"))
+                    .accessibilityLabel(focus.isRunning ? L("暂停计时", "Pause timer") : L("开始计时", "Start timer"))
             }
             Divider()
             HStack(spacing: 13) {

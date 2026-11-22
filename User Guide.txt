@@ -1,21 +1,23 @@
-Interlude 2.2 — User Guide
+Interlude Pre-2 — User Guide (internal version 2.3, build 16)
 
 Interlude combines focus timing, tasks, statistics and local music on Apple silicon Macs running macOS 14 or later. The application on disk is named 间奏.app. Finder may display its English name, Interlude.
 
-Motion in 2.2
+Pre-2 is this preview release’s name. The internal version shown by the system and installer is 2.3, build 16. Earlier 2.2, Pre-1 and other release files remain separate historical versions; distinguish them by their filenames. This guide retains the existing feature instructions and adds the seven Pre-2 improvements below.
+
+Motion retained from 2.2
 The introduction defaults to 10 seconds. Settings offers a short 3-second version, Off, and once-per-day playback. You can skip at any time. Moving forward or back between views combines a gentle directional slide with a fade. Buttons respond visually when you hover or press. Set animation intensity to zero in Settings or enable Reduce Motion in macOS to minimize movement.
 
 Installation and first launch
 Run the package to install Interlude and its uninstaller in Applications. Original ambient tracks are selected by default. Swift source is an optional component. To use the full application archive instead, unzip it, move the app to Applications if desired, and open it. The full app ZIP includes all three ambient tracks.
-Choose English, Simplified Chinese or the system language. Version 2.2 updates the agreement to 2026-11-21.1 with local backup and export details. Upgrading requires a new review. Review the document in a single freely scrolling view. When its end has appeared, check the box and confirm to enter. There are no timed or chapter-by-chapter gates. You may quit without accepting. The installer’s license step does not record agreement for the current user inside the app.
+Choose English, Simplified Chinese or the system language. Pre-2 updates the agreement to 2026-11-22.1 with reflections, subtasks, saved mixes, the optional focus routine and Shortcuts details. Upgrading requires a new review. The 2026-11-21.1 document supplied with 2.2 is the earlier agreement. Review the document in a single freely scrolling view. When its end has appeared, check the box and confirm to enter. There are no timed or chapter-by-chapter gates. You may quit without accepting. The installer’s license step does not record agreement for the current user inside the app.
 The app menu lets you review the agreement or withdraw acceptance. Withdrawing locks the workspace and pauses active focus timing and music playback. Your saved data is retained by default. The personal-music notice is a separate decision.
 
 Focus, menu bar and shortcuts
 Open Focus (⌘1), choose a phase and start it. Set durations from 1 to 180 minutes. The first three focus rounds lead to short breaks, the fourth to a long break, and a break leads into the next focus round. Pause keeps your place. Reset stops at round one and restores the configured focus length. Logged history remains available.
-From the menu bar while Interlude is running, check the time, start or pause a session, reset it, or return to the workspace. The default global focus toggle is ⌘⇧Space. In Settings, choose ⌘⌥Space instead or turn the shortcut off. If another application already uses the combination, choose the alternative. A sleeping Mac cannot sound a reminder at the original instant. On resuming, Interlude settles one overdue phase and gives the next phase its full duration.
+From the menu bar while Interlude is running, check the time, start or pause a session, reset it, or return to the workspace. The default global focus toggle is ⌘⇧Space. In Settings, choose ⌘⌥Space instead or turn the shortcut off. If another application already uses the combination, choose the alternative. A sleeping Mac cannot sound a reminder at the original instant. In Pre-2, sleep, quitting or interrupted timer execution preserves pre-interruption progress or the last saved checkpoint and asks you to resume, record elapsed time or discard the session. Time while the Mac is asleep or Interlude is not running is not automatically credited. Recording elapsed time creates a partial session, not a completed round, and recovery does not automatically skip to another phase.
 
 Tasks and time by task
-Open Tasks (⌘2), enter a title and press Return. Click the circle to mark it complete. Double-click its text or open the row menu to rename. Undo is available for the most recent deletion while its prompt is present. Submitted entries persist locally. An unfinished draft stays in the workspace as you switch pages.
+Open Tasks (⌘2), enter a title and press Return. Click the circle to mark it complete. Double-click its text or open the row menu to rename. Undo is available for the most recent deletion while its prompt is present. Submitted entries persist locally. An unfinished main-task draft stays in the workspace as you switch pages. Expand a task with its arrow to manage subtasks, set planned rounds and compare recorded effort; see the Pre-2 instructions below.
 Use the focus control on a task to start timing work on it. The timer shows the linked task. Timing a task and marking that task complete are separate actions. Statistics shows totals for today and this week, a twelve-week focus calendar and time by task for the selected range. Partial sessions contribute elapsed time; only complete sessions count as rounds. A record is assigned to its end date. Earlier history can retain a task's title even after the task is renamed or removed.
 
 Music, playlists and the floating player
@@ -24,7 +26,7 @@ Use the file picker or drag supported local audio files into the import area. Cr
 Library entries reference files at their original paths. If you move or rename a file, remove the missing library entry and import the file from its new location. Removing an entry or playlist does not delete the original audio.
 
 Preferences, local records and privacy
-Settings controls English or Chinese, system/light/dark appearance, Ember/Forest/Ocean accent, animation intensity, phase alert sound and volume, music fades and the global focus shortcut. The app also respects the macOS Reduce Motion setting.
+Settings controls English or Chinese, system/light/dark appearance, Ember/Forest/Ocean accent, animation intensity, phase alert sound and volume, music fades and the global focus shortcut. The app also respects the macOS Reduce Motion setting. Pre-2 adds Accessibility settings for 100%, 110% or 120% interface and text size, plus increased contrast. Enlarging the interface also increases the minimum window size to fit its contents.
 Task text and completion state are in ~/Library/Application Support/Interlude/tasks.json. The main app stores preferences under com.interlude.desktop, including focus history with linked task details, personal library paths, titles and durations, playlist membership, sound settings and consent records. Agreement reading progress records its version and whether you reached the end. Interlude has no account, advertising, usage analytics or upload service. Your operating system and any backup or file-provider software continue to use their own settings.
 After separate personal-music consent, Interlude can migrate known local library records from older versions. It does not scan folders for audio. The old standalone 间奏个人音乐 application, if installed, is retained when upgrading. Open Interlude and choose Personal Music to use the integrated player.
 
@@ -33,13 +35,42 @@ With the package installer, /Library/Application Support/Interlude/Music holds o
 Open Uninstall Interlude (卸载间奏) from Applications and review your choices. It removes the main app and can also remove components, the legacy standalone player, the utility itself or the current user's stored data. Back up edits before removing the installed source project. Clearing personal data deletes task records and app preferences, including history, consent, playlists and library settings. Original imported music files stay in place. The operation requires confirmation and administrator authorization.
 This locally built release has not been signed with a Developer ID or notarized by Apple. Software and source are licensed under the accompanying MIT License. The reader and consent flow do not restrict the rights it grants. Copyright (c) 2026 GPT-6 Astra Ultra,lin_ruihgz
 
-New in 2.2
+Features introduced in 2.2 (retained in Pre-2)
 
 Focus offers Study, Writing and Work scenes, plus saved custom combinations of phase lengths, theme and ambient music. Applying a scene credits elapsed focus time and prepares a fresh focus phase. Daily goals show progress and a small celebration. Break suggestions can be disabled.
 Music offers a cancellable sleep timer or stopping after a focus phase. Four locally synthesized rain, ocean, forest and cafe soundscapes have independent volumes and can play together. No microphone, recording or online audio is used.
 Settings can export a local backup and restore after confirmation to replace business data. Backups include records and preferences. Personal libraries and playlists are included only with personal-music consent. Audio originals, consent and reading history are excluded, and files are not uploaded. Keep backup files private. Reimport original audio if its path is unavailable on another Mac.
-Statistics exports focus records as CSV or a weekly summary as PNG to a location you choose. Check task titles and times before sharing.
+Statistics exports focus records as CSV or a weekly summary as PNG to a location you choose. Pre-2 CSV exports also include Reflection and Next step text. Check task titles, times and notes before sharing.
+
+New in Pre-2
+
+1. Decide how to recover an interruption
+When a running interval is interrupted, Focus shows a recovery card. Resume continues from the retained remaining time. Record elapsed time saves only focus time before the interruption, without adding a completed round. Discard session does not save that interval and prepares fresh focus. Recording is unavailable when there is no elapsed focus time to save. Shortcuts and normal start controls cannot skip a pending recovery decision.
+
+2. Session summaries, reflections and next steps
+After focus ends or elapsed time is recorded, choose Reflect in the summary to capture what you learned and what comes next. Both fields are optional, with up to 4,000 characters each. Reopen and edit them under Session reflections in Statistics. Reading or writing a reflection does not pause the timer in the next phase. Notes remain local and are included in backups and CSV exports; review them before sharing.
+
+3. Subtasks and planned rounds
+Expand a task using its arrow to add, rename, delete and check one level of subtasks, up to 200 per task. Press Return to add a subtask; while editing, Return saves and Escape cancels. Subtasks and the main task are checked independently. Set planned focus rounds from 1 to 99; decrease to 0 to clear the estimate. The detail view compares it with actual completed rounds and recorded minutes from linked history. Partial sessions add time only. Undoing the latest main-task removal restores its subtasks and estimate too.
+
+4. Save your own mixes
+On Music, choose a track or playlist, music on/off and volume, and rain/ocean/forest/cafe volumes. Open Presets and choose Save Current Mix. Use distinct names for combinations, then apply one with its play button, rename it or delete it. Saving does not start playback. A personal-music mix still requires Personal Music consent and accessible original files. Presets do not copy audio.
+
+5. An optional focus routine
+Enable Focus Routine in Settings to choose a mix at the start and fade music and soundscapes when focus ends. Opening documents has a separate toggle. Only documents or images you explicitly select are passed to their default applications when new focus starts. Choose up to 20 files; apps, scripts and folders are not launch targets. Continuing a paused timer, recovering an interruption, launching Interlude and restoring a backup do not run the routine. Disable it to stop future automatic actions. Removing a document selection does not delete its original.
+
+6. macOS Shortcuts
+First open Interlude and accept the current app agreement. Open macOS Shortcuts, create a shortcut and search app actions for Interlude (or 间奏). Four actions are available: Start focus in Interlude, Pause the Interlude timer, Add an Interlude task, and Play an Interlude sound preset. Add task takes a title. Play preset takes the exact name saved on the Music page. Actions open Interlude and use its current workspace. Starting while focus already runs leaves that session running. If recovery is pending, return to Interlude and choose Resume, Record elapsed time or Discard session first. Personal Music still requires separate consent. Shortcuts cannot accept agreements or grant document permissions for you. If actions do not appear after installation, open this build from Applications, then reopen Shortcuts.
+These actions differ from global keyboard shortcuts. ⌘⇧Space (or ⌘⌥Space in Settings) toggles timing while Interlude runs; macOS Shortcuts lets you arrange other entry points for the four actions above.
+
+7. Clearer controls and keyboard access
+Accessibility in Settings offers 100%, 110% and 120% interface and text size, plus increased contrast. macOS Increase Contrast and Reduce Motion settings also apply. In the main window, ⌘1–5 selects Focus, Tasks, Music, Statistics and Settings; ⌘⇧P starts or pauses; ⌘⇧R resets the timer and cycle. Tab moves between controls. Enable Keyboard Navigation in macOS keyboard settings when needed. New controls provide VoiceOver names and states; task details and action buttons remain visible without hovering.
+
+Pre-2 backups and earlier data
+
+Existing tasks with only a title and completion state load with no subtasks and no estimate. Earlier focus records remain readable, with blank reflection and next-step fields. Missing new fields do not require rebuilding your data.
+Local backups include subtasks, estimates, reflections, next steps and saved mixes. The routine transfers portable configuration only, excluding selected documents and their device-specific access bookmarks. Document and audio originals are not bundled. Restoring leaves the routine and document opening disabled and clears document selections; select files again and deliberately enable the options. Restoration does not automatically play, open documents or credit time during an interruption; interrupted records still require a recovery choice. App and Personal Music consent and reading progress remain local decisions and are not imported. Interlude has no cloud sync.
 
 Factory reset
 
-Choose Reset all data and settings at the bottom of Settings and confirm to clear Interlude tasks, focus history, personal library, playlists, scenes, goals, all preferences and consent records. The app returns to the agreement reader. Audio originals and exported backups or reports are kept. Older personal libraries are not automatically migrated back. This cannot be undone; export a backup first if needed.
+Choose Reset all data and settings at the bottom of Settings and confirm to clear Interlude tasks, focus history, personal library, playlists, scenes, goals, reflections, saved mixes, the focus routine and document selections, all preferences and consent records. The app returns to the agreement reader. Audio and selected-document originals and exported backups or reports are kept. Older personal libraries are not automatically migrated back. This cannot be undone; export a backup first if needed.

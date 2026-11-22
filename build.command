@@ -2,17 +2,15 @@
 set -euo pipefail
 SOURCE_DIR="$(cd "$(dirname "$0")" && pwd)"
 DESTINATION="${1:-$SOURCE_DIR/Build}"
+mkdir -p "$DESTINATION"
+DESTINATION="$(cd "$DESTINATION" && pwd)"
+# Xcode also extracts the App Intents metadata used by macOS Shortcuts.
+xcodebuild -quiet -project "$SOURCE_DIR/Interlude.xcodeproj" -scheme Interlude \
+    -configuration Release -derivedDataPath "$DESTINATION/DerivedData" \
+    -destination 'generic/platform=macOS' ARCHS="$(uname -m)" \
+    CODE_SIGN_IDENTITY=- CODE_SIGNING_ALLOWED=YES build
 APP="$DESTINATION/间奏.app"
-mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$DESTINATION/ModuleCache"
-xcrun swiftc \
-    -O -whole-module-optimization \
-    -target "$(uname -m)-apple-macos14.0" \
-    -module-cache-path "$DESTINATION/ModuleCache" \
-    -Xfrontend -disable-sandbox \
-    "$SOURCE_DIR"/Sources/*.swift \
-    -o "$APP/Contents/MacOS/Interlude"
-cp "$SOURCE_DIR/Info.plist" "$APP/Contents/Info.plist"
-ditto "$SOURCE_DIR/Resources" "$APP/Contents/Resources"
-cp "$SOURCE_DIR/LICENSE.txt" "$APP/Contents/Resources/LICENSE.txt"
-codesign --force --sign - "$APP"
-echo "已生成 $APP"
+ditto "$DESTINATION/DerivedData/Build/Products/Release/间奏.app" "$APP"
+codesign --verify --strict "$APP"
+test -f "$APP/Contents/Resources/Metadata.appintents/extract.actionsdata"
+echo "已生成 Interlude Pre-2: $APP"

@@ -111,6 +111,7 @@ struct StatisticsPage: View {
                     .opacity(appeared || reduced ? 1 : 0.84)
                     .animation(reduced ? nil : .easeOut(duration: 0.24).delay(0.04), value: appeared)
                 breakdown(data)
+                FocusReviewHistory(model: model)
                 HStack(spacing: 12) {
                     Button { exportCSV() } label: {
                         Label(L("导出 CSV（" + range.title + "）", "Export CSV (" + range.title + ")"), systemImage: "tablecells")
@@ -301,12 +302,13 @@ enum StatisticsExport {
     static func csv(records: [FocusRecord], english: Bool) -> Data {
         let formatter = ISO8601DateFormatter()
         formatter.timeZone = .current
-        let headers = english ? ["End time", "Seconds", "Completed round", "Task ID", "Task"] : ["结束时间", "专注秒数", "完整轮次", "事项编号", "事项名称"]
+        let headers = english ? ["End time", "Seconds", "Completed round", "Task ID", "Task", "Reflection", "Next step"] : ["结束时间", "专注秒数", "完整轮次", "事项编号", "事项名称", "收获", "下一步"]
         var output = "\u{FEFF}" + line(headers)
         for record in records.sorted(by: { $0.end < $1.end }) {
             let completed = record.completedRound ? (english ? "Yes" : "是") : (english ? "No" : "否")
             output += line([formatter.string(from: record.end), String(record.seconds), completed,
-                            record.taskID?.uuidString ?? "", record.taskTitle ?? (english ? "Unassigned" : "未关联事项")])
+                            record.taskID?.uuidString ?? "", record.taskTitle ?? (english ? "Unassigned" : "未关联事项"),
+                            record.reflection ?? "", record.nextStep ?? ""])
         }
         return Data(output.utf8)
     }

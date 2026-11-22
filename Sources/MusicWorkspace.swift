@@ -20,12 +20,17 @@ final class MusicWorkspaceModel: ObservableObject {
     let personal: MusicModel
     let mixer: NoiseMixer
     let sleepTimer = MusicSleepTimer()
+    let presets: SoundPresetStore
+    let workflow: FocusWorkflowStore
+    @Published var presetNotice: String?
     private let settings: UserDefaults
     private let legacyPersonalSettings: UserDefaults?
 
     init(settings: UserDefaults = .standard,
          legacyPersonalSettings: UserDefaults? = UserDefaults(suiteName: "com.interlude.personal-music")) {
         self.settings = settings
+        presets = SoundPresetStore(settings: settings)
+        workflow = FocusWorkflowStore(settings: settings)
         self.legacyPersonalSettings = legacyPersonalSettings
         hasConsent = settings.integer(forKey: Self.consentKey) == Self.privacyVersion
         mixer = NoiseMixer(settings: settings)
@@ -51,9 +56,75 @@ final class MusicWorkspaceModel: ObservableObject {
         }
     }
 
-    func focusDidFinish() { sleepTimer.focusDidFinish() }
+    var presetList: [SoundPreset] { presets.presets }
+
+    @discardableResult
+    func saveCurrentPreset(named name: String) -> Bool {
+        let player = activePlayer
+        let sounds = Dictionary(uniqueKeysWithValues: NoiseKind.allCases.map { kind in
+            (kind.rawValue, SoundscapeSetting(enabled: mixer.enabled.contains(kind), volume: mixer.levels[kind] ?? 0.5))
+        })
+        return presets.save(SoundPreset(name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            musicSource: section == .personal ? "personal" : "ambient", trackID: player.presetTrackID,
+            playlistID: player.presetPlaylistID, playMusic: player.isPlaying,
+            ambientVolume: ambient.presetVolume, personalVolume: personal.presetVolume, soundscapes: sounds))
+    }
+
+    /// Explicit UI/shortcut playback only; construction and backup restoration never call this.
+    @discardableResult
+    func applyPreset(id: String) -> Bool {
+        guard let preset = presets.presets.first(where: { $0.id == id }) else {
+            presetNotice = L("此混音预设已被删除，请重新选择。", "This mix is no longer available. Choose another preset.")
+            return false
+        }
+        if preset.musicSource == "personal" {
+            guard hasConsent else {
+                presetNotice = L("请先在音乐页阅读并同意个人音乐隐私说明，再播放此预设。", "Read and accept the Personal Music privacy notice on the Music page before playing this preset.")
+                return false
+            }
+            openPersonalMusic()
+        } else {
+            personal.pausePlayback()
+            section = .ambient
+        }
+        ambient.setPresetVolume(preset.ambientVolume)
+        personal.setPresetVolume(preset.personalVolume)
+        let selected = activePlayer.applyPresetSelection(trackID: preset.trackID, playlistID: preset.playlistID,
+            volume: preset.musicSource == "personal" ? preset.personalVolume : preset.ambientVolume, play: preset.playMusic)
+        for kind in NoiseKind.allCases {
+            if let sound = preset.soundscapes[kind.rawValue] {
+                mixer.setLevel(sound.volume, for: kind)
+                mixer.setEnabled(sound.enabled, for: kind)
+            }
+        }
+        if !selected {
+            presetNotice = L("声景已应用，但保存的曲目或歌单不可用。请检查曲库后重新保存此预设。", "Soundscapes were applied, but the saved track or playlist is unavailable. Check your library and save the mix again.")
+        } else { presetNotice = nil }
+        return selected
+    }
+
+    @discardableResult
+    func playPreset(named name: String) -> Bool {
+        guard let preset = presets.presets.first(where: { $0.name.compare(name, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame }) else {
+            presetNotice = L("找不到此名称的混音预设。", "No saved mix matches this name.")
+            return false
+        }
+        return applyPreset(id: preset.id)
+    }
+
+    func focusDidStart() { workflow.focusDidStart { [weak self] id in self?.applyPreset(id: id) ?? false } }
+
+    func focusDidFinish() {
+        sleepTimer.focusDidFinish()
+        workflow.focusDidFinish { [weak self] in
+            self?.ambient.fadeForSleep()
+            self?.personal.fadeForSleep()
+            self?.mixer.fadeOutAll()
+        }
+    }
 
     func stopAll() {
+        workflow.cancelPendingActions()
         sleepTimer.cancel()
         mixer.stopAll()
         ambient.releaseAudio()
@@ -135,6 +206,7 @@ struct MusicWorkspacePage: View {
                 .padding(4)
                 .background(AppPalette.ink.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
                 Spacer()
+                SoundPresetsButton(library: library, store: library.presets)
                 SoundscapeButton(mixer: library.mixer)
                 MusicSleepButton(timer: library.sleepTimer)
                 Button { library.showingPrivacy = true } label: {
@@ -160,6 +232,9 @@ struct MusicWorkspacePage: View {
                 transaction.disablesAnimations = true
             }
         }
+        .alert(L("混音预设", "Saved Mix"), isPresented: Binding(get: { library.presetNotice != nil }, set: { if !$0 { library.presetNotice = nil } })) {
+            Button(L("好", "OK")) { library.presetNotice = nil }
+        } message: { Text(library.presetNotice ?? "") }
         .sheet(isPresented: $library.showingPrivacy) {
             PersonalMusicPrivacySheet(library: library)
         }

@@ -48,18 +48,26 @@ enum AppTheme: String, CaseIterable, Identifiable {
 }
 
 enum AppPalette {
+    static var increasedContrast: Bool { UserDefaults.standard.bool(forKey: "interlude.settings.highContrast") || NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast }
     private static func adaptive(_ light: NSColor, _ dark: NSColor) -> Color {
         Color(nsColor: NSColor(name: nil) { appearance in
             appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
         })
     }
-    static var ink: Color { adaptive(NSColor(white: 0.13, alpha: 1), NSColor(white: 0.94, alpha: 1)) }
+    static var ink: Color { adaptive(NSColor(white: increasedContrast ? 0.02 : 0.13, alpha: 1), NSColor(white: increasedContrast ? 1 : 0.94, alpha: 1)) }
     static var paper: Color { adaptive(NSColor(red: 0.965, green: 0.961, blue: 0.941, alpha: 1), NSColor(red: 0.075, green: 0.085, blue: 0.08, alpha: 1)) }
     static var side: Color { adaptive(NSColor(red: 0.932, green: 0.928, blue: 0.902, alpha: 1), NSColor(red: 0.10, green: 0.11, blue: 0.10, alpha: 1)) }
     static var card: Color { adaptive(NSColor(red: 0.99, green: 0.985, blue: 0.97, alpha: 1), NSColor(red: 0.14, green: 0.15, blue: 0.14, alpha: 1)) }
-    static var muted: Color { adaptive(NSColor(white: 0.40, alpha: 1), NSColor(white: 0.65, alpha: 1)) }
-    static var line: Color { adaptive(NSColor.black.withAlphaComponent(0.13), NSColor.white.withAlphaComponent(0.15)) }
+    static var muted: Color { adaptive(NSColor(white: increasedContrast ? 0.25 : 0.40, alpha: 1), NSColor(white: increasedContrast ? 0.84 : 0.65, alpha: 1)) }
+    static var line: Color { adaptive(NSColor.black.withAlphaComponent(increasedContrast ? 0.44 : 0.13), NSColor.white.withAlphaComponent(increasedContrast ? 0.5 : 0.15)) }
     static var accent: Color {
+        if increasedContrast {
+            switch AppTheme(rawValue: UserDefaults.standard.string(forKey: "interlude.settings.theme") ?? "ember") ?? .ember {
+            case .ember: return adaptive(NSColor(red: 0.57, green: 0.20, blue: 0.07, alpha: 1), NSColor(red: 1, green: 0.7, blue: 0.49, alpha: 1))
+            case .forest: return adaptive(NSColor(red: 0.10, green: 0.37, blue: 0.19, alpha: 1), NSColor(red: 0.51, green: 0.88, blue: 0.62, alpha: 1))
+            case .ocean: return adaptive(NSColor(red: 0.08, green: 0.30, blue: 0.59, alpha: 1), NSColor(red: 0.55, green: 0.78, blue: 1, alpha: 1))
+            }
+        }
         switch AppTheme(rawValue: UserDefaults.standard.string(forKey: "interlude.settings.theme") ?? "ember") ?? .ember {
         case .ember: return Color(red: 0.92, green: 0.38, blue: 0.20)
         case .forest: return Color(red: 0.32, green: 0.65, blue: 0.44)
@@ -93,11 +101,16 @@ final class AppSettings: ObservableObject {
     @Published var shortcut: String { didSet { save(shortcut, "shortcut") } }
     @Published var launchMode: LaunchAnimationMode { didSet { save(launchMode.rawValue, "launchMode") } }
     @Published var launchOncePerDay: Bool { didSet { save(launchOncePerDay, "launchOncePerDay") } }
+    @Published var highContrast: Bool { didSet { save(highContrast, "highContrast") } }
+    @Published var interfaceScale: Double { didSet { save(interfaceScale, "interfaceScale") } }
     private let defaults: UserDefaults
     private var previewSound: NSSound?
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        highContrast = defaults.bool(forKey: "interlude.settings.highContrast")
+        let savedScale = defaults.double(forKey: "interlude.settings.interfaceScale")
+        interfaceScale = [1.0, 1.1, 1.2].contains(savedScale) ? savedScale : 1.0
         launchMode = LaunchAnimationMode(rawValue: defaults.string(forKey: "interlude.settings.launchMode") ?? "full") ?? .full
         launchOncePerDay = defaults.bool(forKey: "interlude.settings.launchOncePerDay")
         language = AppLanguage(rawValue: defaults.string(forKey: "interlude.settings.language") ?? "system") ?? .system
@@ -126,12 +139,13 @@ final class AppSettings: ObservableObject {
         motion = saved.motion; phaseSound = saved.phaseSound; soundVolume = saved.soundVolume
         musicFade = saved.musicFade; shortcut = saved.shortcut
         launchMode = saved.launchMode; launchOncePerDay = saved.launchOncePerDay
+        highContrast = saved.highContrast; interfaceScale = saved.interfaceScale
     }
 
     private func save(_ value: Any, _ key: String) { defaults.set(value, forKey: "interlude.settings." + key) }
     var locale: Locale { Locale(identifier: AppLanguage.current == .english ? "en" : "zh_Hans") }
     var reduceMotion: Bool { motion < 0.01 || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
-    var visualIdentity: String { language.rawValue + appearance.rawValue + theme.rawValue }
+    var visualIdentity: String { language.rawValue + appearance.rawValue + theme.rawValue + String(highContrast) }
 
     func stopPhaseSound() { previewSound?.stop(); previewSound = nil }
 

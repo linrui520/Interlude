@@ -1,10 +1,46 @@
 import Foundation
 import SwiftUI
 
+struct TaskSubtask: Identifiable, Codable, Equatable {
+    let id: UUID
+    var title: String
+    var completed: Bool
+}
+
 struct InterludeTask: Identifiable, Codable, Equatable {
     let id: UUID
     var title: String
     var completed: Bool
+    var subtasks: [TaskSubtask]
+    var plannedRounds: Int?
+
+    init(id: UUID, title: String, completed: Bool, subtasks: [TaskSubtask] = [], plannedRounds: Int? = nil) {
+        self.id = id
+        self.title = title
+        self.completed = completed
+        self.subtasks = subtasks
+        self.plannedRounds = plannedRounds
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, title, completed, subtasks, plannedRounds }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(UUID.self, forKey: .id)
+        title = try values.decode(String.self, forKey: .title)
+        completed = try values.decode(Bool.self, forKey: .completed)
+        subtasks = try values.decodeIfPresent([TaskSubtask].self, forKey: .subtasks) ?? []
+        plannedRounds = try values.decodeIfPresent(Int.self, forKey: .plannedRounds)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(id, forKey: .id)
+        try values.encode(title, forKey: .title)
+        try values.encode(completed, forKey: .completed)
+        if !subtasks.isEmpty { try values.encode(subtasks, forKey: .subtasks) }
+        try values.encodeIfPresent(plannedRounds, forKey: .plannedRounds)
+    }
 }
 
 @MainActor
@@ -25,6 +61,58 @@ final class TaskStore: ObservableObject {
     @Published fileprivate var filter = TaskFilter.all
     @Published fileprivate var editingID: UUID?
     @Published fileprivate var renameDraft = ""
+    @Published fileprivate var expandedID: UUID?
+
+    static let maximumDataBytes = 32 * 1024 * 1024
+    static let maximumTasks = 100_000
+    static let maximumSubtasks = 200
+    static let maximumTitleBytes = 65_536
+    static let maximumPlannedRounds = 99
+
+    static func validTitle(_ title: String) -> Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+        title.utf8.count <= maximumTitleBytes && !title.utf8.contains(0)
+    }
+
+    /// Accepts legacy tasks while strictly checking the extended backup schema.
+    static func validateBackupItems(_ data: Data) throws -> [InterludeTask] {
+        guard data.count <= maximumDataBytes,
+              let rows = try JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+              rows.count <= maximumTasks else { throw CocoaError(.fileReadCorruptFile) }
+        for row in rows {
+            guard Set(row.keys).isSubset(of: ["id", "title", "completed", "subtasks", "plannedRounds"]) else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            if let value = row["subtasks"], !(value is NSNull) {
+                guard let subtasks = value as? [[String: Any]], subtasks.count <= maximumSubtasks,
+                      subtasks.allSatisfy({ Set($0.keys) == ["id", "title", "completed"] }) else {
+                    throw CocoaError(.fileReadCorruptFile)
+                }
+            }
+        }
+        let tasks = try JSONDecoder().decode([InterludeTask].self, from: data)
+        try validateItems(tasks)
+        return tasks
+    }
+
+    private static func validateItems(_ tasks: [InterludeTask]) throws {
+        guard tasks.count <= maximumTasks else { throw CocoaError(.fileReadCorruptFile) }
+        var ids = Set<UUID>()
+        var subtaskCount = 0
+        for task in tasks {
+            guard ids.insert(task.id).inserted, validTitle(task.title), task.subtasks.count <= maximumSubtasks,
+                  task.plannedRounds.map({ (1...maximumPlannedRounds).contains($0) }) ?? true else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            subtaskCount += task.subtasks.count
+            guard subtaskCount <= 100_000 else { throw CocoaError(.fileReadCorruptFile) }
+            for subtask in task.subtasks {
+                guard ids.insert(subtask.id).inserted, validTitle(subtask.title) else {
+                    throw CocoaError(.fileReadCorruptFile)
+                }
+            }
+        }
+    }
 
     private let file: URL
     private var deletedIndex = 0
@@ -42,7 +130,7 @@ final class TaskStore: ObservableObject {
 
     func load() {
         do {
-            items = try JSONDecoder().decode([InterludeTask].self, from: Data(contentsOf: file))
+            items = try Self.validateBackupItems(Data(contentsOf: file))
         } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
             items = []
         } catch {
@@ -57,16 +145,63 @@ final class TaskStore: ObservableObject {
     @discardableResult
     func add(_ input: String) -> Bool {
         let title = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !title.isEmpty else { return false }
+        guard Self.validTitle(title), items.count < Self.maximumTasks else { return false }
         return save([InterludeTask(id: UUID(), title: title, completed: false)] + items)
     }
 
     @discardableResult
     func rename(_ id: UUID, to input: String) -> Bool {
         let title = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !title.isEmpty, let index = items.firstIndex(where: { $0.id == id }) else { return false }
+        guard Self.validTitle(title), let index = items.firstIndex(where: { $0.id == id }) else { return false }
         var updated = items
         updated[index].title = title
+        return save(updated)
+    }
+
+    @discardableResult
+    func setPlannedRounds(_ id: UUID, to rounds: Int?) -> Bool {
+        guard rounds.map({ (1...Self.maximumPlannedRounds).contains($0) }) ?? true,
+              let index = items.firstIndex(where: { $0.id == id }) else { return false }
+        var updated = items
+        updated[index].plannedRounds = rounds
+        return save(updated)
+    }
+
+    @discardableResult
+    func addSubtask(to taskID: UUID, title input: String) -> Bool {
+        let title = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard Self.validTitle(title), let index = items.firstIndex(where: { $0.id == taskID }),
+              items[index].subtasks.count < Self.maximumSubtasks else { return false }
+        var updated = items
+        updated[index].subtasks.append(TaskSubtask(id: UUID(), title: title, completed: false))
+        return save(updated)
+    }
+
+    @discardableResult
+    func renameSubtask(_ subtaskID: UUID, in taskID: UUID, to input: String) -> Bool {
+        let title = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard Self.validTitle(title), let index = items.firstIndex(where: { $0.id == taskID }),
+              let subindex = items[index].subtasks.firstIndex(where: { $0.id == subtaskID }) else { return false }
+        var updated = items
+        updated[index].subtasks[subindex].title = title
+        return save(updated)
+    }
+
+    @discardableResult
+    func toggleSubtask(_ subtaskID: UUID, in taskID: UUID) -> Bool {
+        guard let index = items.firstIndex(where: { $0.id == taskID }),
+              let subindex = items[index].subtasks.firstIndex(where: { $0.id == subtaskID }) else { return false }
+        var updated = items
+        updated[index].subtasks[subindex].completed.toggle()
+        return save(updated)
+    }
+
+    @discardableResult
+    func removeSubtask(_ subtaskID: UUID, from taskID: UUID) -> Bool {
+        guard let index = items.firstIndex(where: { $0.id == taskID }),
+              let subindex = items[index].subtasks.firstIndex(where: { $0.id == subtaskID }) else { return false }
+        var updated = items
+        updated[index].subtasks.remove(at: subindex)
         return save(updated)
     }
 
@@ -84,6 +219,8 @@ final class TaskStore: ObservableObject {
         if save(updated) {
             deletedIndex = index
             deleted = removed
+            if expandedID == id { expandedID = nil }
+            if editingID == id { editingID = nil }
         }
     }
 
@@ -98,25 +235,33 @@ final class TaskStore: ObservableObject {
 
     func itemsForBackup() throws -> [InterludeTask] {
         guard !loadFailed else { throw CocoaError(.fileReadCorruptFile) }
+        try Self.validateItems(items)
         return items
     }
 
     func restoreBackupItems(_ restored: [InterludeTask]) throws {
+        try Self.validateItems(restored)
         let data = try JSONEncoder().encode(restored)
+        guard data.count <= Self.maximumDataBytes else { throw CocoaError(.fileReadCorruptFile) }
         try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
         try data.write(to: file, options: .atomic)
         items = restored
         storageIssue = nil
         loadFailed = false
         deleted = nil
+        editingID = nil
+        expandedID = nil
     }
 
     private func save(_ updated: [InterludeTask]) -> Bool {
         guard !loadFailed else { return false }
         do {
+            try Self.validateItems(updated)
             try FileManager.default.createDirectory(at: file.deletingLastPathComponent(),
                                                     withIntermediateDirectories: true)
-            try JSONEncoder().encode(updated).write(to: file, options: .atomic)
+            let data = try JSONEncoder().encode(updated)
+            guard data.count <= Self.maximumDataBytes else { throw CocoaError(.fileReadCorruptFile) }
+            try data.write(to: file, options: .atomic)
             items = updated
             storageIssue = nil
             return true
@@ -191,6 +336,9 @@ private struct TaskEntryRow: View {
     @Binding var editingID: UUID?
     @Binding var draft: String
     let minutes: Int
+    let rounds: Int
+    let expanded: Bool
+    let showDetails: () -> Void
     let startFocus: ((InterludeTask) -> Void)?
     let toggle: () -> Void
     let rename: (String) -> Bool
@@ -204,7 +352,22 @@ private struct TaskEntryRow: View {
     @FocusState private var editFocused: Bool
 
     private var isEditing: Bool { editingID == item.id }
-    private var emptyDraft: Bool { draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    private var emptyDraft: Bool { !TaskStore.validTitle(draft) }
+
+    private var summary: String {
+        var parts: [String] = []
+        if !item.subtasks.isEmpty {
+            let done = item.subtasks.filter(\.completed).count
+            parts.append(L("子步骤 \(done)/\(item.subtasks.count)", "Subtasks \(done)/\(item.subtasks.count)"))
+        }
+        if let planned = item.plannedRounds {
+            parts.append(L("预计 \(planned) 轮 · 实际 \(rounds) 轮", "Planned \(planned) · Actual \(rounds) \(rounds == 1 ? "round" : "rounds")"))
+        } else if rounds > 0 {
+            parts.append(L("实际 \(rounds) 轮", "Actual \(rounds) \(rounds == 1 ? "round" : "rounds")"))
+        }
+        if minutes > 0 { parts.append(L("\(minutes) 分钟", "\(minutes) min")) }
+        return parts.joined(separator: " · ")
+    }
 
     private func edit() {
         draft = item.title
@@ -247,19 +410,33 @@ private struct TaskEntryRow: View {
                     .buttonStyle(.plain).foregroundStyle(AppPalette.accent)
                 Button(L("取消", "Cancel")) { editingID = nil }.buttonStyle(.plain)
             } else {
-                Text(item.title)
-                    .strikethrough(item.completed, color: AppPalette.muted)
-                    .foregroundStyle(item.completed ? AppPalette.muted : AppPalette.ink)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .lineLimit(3)
-                    .contentShape(Rectangle())
-                    .onTapGesture(count: 2, perform: edit)
-                    .help(item.title)
-                if minutes > 0 {
-                    Label(L("\(minutes) 分钟", "\(minutes) min"), systemImage: "clock")
-                        .font(.system(size: 11).monospacedDigit())
-                        .foregroundStyle(AppPalette.muted)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(item.title)
+                        .strikethrough(item.completed, color: AppPalette.muted)
+                        .foregroundStyle(item.completed ? AppPalette.muted : AppPalette.ink)
+                        .lineLimit(3)
+                        .contentShape(Rectangle())
+                        .onTapGesture(count: 2, perform: edit)
+                        .help(item.title)
+                    if item.plannedRounds != nil || rounds > 0 || minutes > 0 || !item.subtasks.isEmpty {
+                        Text(summary)
+                            .font(.system(size: 11).monospacedDigit())
+                            .foregroundStyle(AppPalette.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Button(action: showDetails) {
+                    Image(systemName: expanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 11, weight: .medium))
+                        .frame(width: 28, height: 28)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(InterludeButtonStyle())
+                .foregroundStyle(AppPalette.muted)
+                .accessibilityLabel((expanded ? L("收起详情：", "Collapse details: ") : L("展开详情：", "Expand details: ")) + item.title)
+                .accessibilityValue(expanded ? L("已展开", "Expanded") : L("已收起", "Collapsed"))
+                .help(L("子步骤与预计轮数", "Subtasks and planned rounds"))
                 if let startFocus, !item.completed {
                     Button { startFocus(item) } label: {
                         Label(L("专注", "Focus"), systemImage: "timer")
@@ -299,6 +476,7 @@ struct TasksPage: View {
     @ObservedObject var store: TaskStore
     var startFocus: ((InterludeTask) -> Void)? = nil
     var focusMinutes: (UUID) -> Int = { _ in 0 }
+    var completedRounds: (UUID) -> Int = { _ in 0 }
     @Environment(\.motionAmount) private var motionAmount
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     private var reduceMotion: Bool { systemReduceMotion || motionAmount <= 0 }
@@ -353,7 +531,7 @@ struct TasksPage: View {
                             in: RoundedRectangle(cornerRadius: 6))
             }
             .buttonStyle(InterludeButtonStyle())
-            .disabled(store.newTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(!TaskStore.validTitle(store.newTitle) || store.items.count >= TaskStore.maximumTasks)
         }
         .padding(.leading, 18).padding(.trailing, 12)
         .frame(height: 55)
@@ -407,12 +585,20 @@ struct TasksPage: View {
                             ForEach(visible) { item in
                                 VStack(spacing: 0) {
                                     TaskEntryRow(item: item, editingID: $store.editingID, draft: $store.renameDraft,
-                                                 minutes: focusMinutes(item.id), startFocus: startFocus) {
+                                                 minutes: focusMinutes(item.id), rounds: completedRounds(item.id),
+                                                 expanded: store.expandedID == item.id, showDetails: {
+                                        withAnimation(motion) { store.expandedID = store.expandedID == item.id ? nil : item.id }
+                                    }, startFocus: startFocus) {
                                         withAnimation(motion) { store.toggle(item.id) }
                                     } rename: { name in
                                         store.rename(item.id, to: name)
                                     } remove: {
                                         withAnimation(motion) { store.remove(item.id) }
+                                    }
+                                    if store.expandedID == item.id {
+                                        TaskDetailsView(store: store, taskID: item.id,
+                                                        minutes: focusMinutes(item.id), rounds: completedRounds(item.id))
+                                            .transition(reduceMotion ? .identity : .opacity)
                                     }
                                     Divider().padding(.leading, 56)
                                 }

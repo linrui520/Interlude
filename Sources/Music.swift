@@ -309,6 +309,37 @@ final class MusicModel: NSObject, ObservableObject, AVAudioPlayerDelegate {
         fadingPlayer = nil
     }
 
+    var presetTrackID: String? { selected }
+    var presetPlaylistID: String? { activePlaylistID }
+    var presetVolume: Double { volume }
+
+    /// Applies a saved selection without invoking an import panel or bypassing personal access.
+    @discardableResult
+    func applyPresetSelection(trackID: String?, playlistID: String?, volume level: Double, play: Bool) -> Bool {
+        guard hasAccess, level.isFinite, (0...1).contains(level) else { return false }
+        pausePlayback()
+        volume = level
+        var valid = true
+        if allowsImport {
+            if let playlistID, !playlists.contains(where: { $0.id == playlistID }) { valid = false }
+            activePlaylistID = playlists.contains(where: { $0.id == playlistID }) ? playlistID : nil
+            clearShuffleQueue()
+        }
+        guard let trackID else { selected = nil; elapsed = 0; return !play && valid }
+        guard visibleTracks.contains(where: { $0.id == trackID }) else {
+            selected = nil
+            elapsed = 0
+            return false
+        }
+        choose(trackID, play: play)
+        return valid && (!play || isPlaying)
+    }
+
+    func setPresetVolume(_ level: Double) {
+        guard hasAccess, level.isFinite, (0...1).contains(level) else { return }
+        volume = level
+    }
+
     func fadeForSleep() {
         if isPlaying { fadeOutPlayback(force: true, duration: 0.8) }
     }
